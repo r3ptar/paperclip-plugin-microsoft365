@@ -31,6 +31,7 @@ interface WizardState {
   // Step 1: Credentials
   tenantId: string;
   clientId: string;
+  clientSecret: string;
   clientSecretRef: string;
   connectionTested: boolean;
   // Step 2: Services
@@ -65,6 +66,7 @@ const initialState: WizardState = {
   step: 1,
   tenantId: "",
   clientId: "",
+  clientSecret: "",
   clientSecretRef: "",
   connectionTested: false,
   enablePlanner: false,
@@ -391,14 +393,15 @@ export function SetupWizard(props: SetupWizardProps) {
             </div>
 
             <div style={fieldRow}>
-              <span style={fieldLabel}>Client Secret Reference</span>
+              <span style={fieldLabel}>Client Secret</span>
               <input
-                type="text"
+                type="password"
                 style={textInput}
-                placeholder="secret-ref://..."
-                value={state.clientSecretRef}
+                placeholder="Paste your Azure AD client secret"
+                value={state.clientSecret}
                 onChange={(e) => {
-                  update("clientSecretRef", e.target.value);
+                  update("clientSecret", e.target.value);
+                  update("clientSecretRef", "");
                   update("connectionTested", false);
                 }}
               />
@@ -407,9 +410,11 @@ export function SetupWizard(props: SetupWizardProps) {
             <ConnectionStatusWrapper
               tenantId={state.tenantId}
               clientId={state.clientId}
+              clientSecret={state.clientSecret}
               clientSecretRef={state.clientSecretRef}
               companyId={companyId}
               onSuccess={() => update("connectionTested", true)}
+              onSecretStored={(ref) => update("clientSecretRef", ref)}
             />
 
             <div style={{ marginTop: "16px" }}>
@@ -636,8 +641,10 @@ export function SetupWizard(props: SetupWizardProps) {
                 <span style={reviewValue}>{state.clientId}</span>
               </div>
               <div style={reviewRow}>
-                <span style={reviewLabel}>Client Secret Ref</span>
-                <span style={reviewValue}>{state.clientSecretRef}</span>
+                <span style={reviewLabel}>Client Secret</span>
+                <span style={reviewValue}>
+                  {state.clientSecretRef ? "Stored securely" : "Not configured"}
+                </span>
               </div>
             </div>
 
@@ -772,13 +779,67 @@ export function SetupWizard(props: SetupWizardProps) {
 interface ConnectionStatusWrapperProps {
   tenantId: string;
   clientId: string;
+  clientSecret: string;
   clientSecretRef: string;
   companyId: string | null;
   onSuccess: () => void;
+  onSecretStored: (ref: string) => void;
+}
+
+/**
+ * Stores a raw secret value via the Paperclip secrets API and returns the
+ * generated UUID reference.  If a secret with the same name already exists
+ * (409 Conflict), a timestamp-suffixed name is used as a fallback.
+ */
+async function storeSecret(
+  companyId: string,
+  name: string,
+  value: string,
+): Promise<string> {
+  const create = async (secretName: string): Promise<string> => {
+    const res = await fetch(`/api/companies/${companyId}/secrets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: secretName, value }),
+    });
+
+    if (res.status === 409) {
+      // Name collision -- retry with a unique suffix
+      const uniqueName = `${name}-${Date.now()}`;
+      const retry = await fetch(`/api/companies/${companyId}/secrets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: uniqueName, value }),
+      });
+      if (!retry.ok) {
+        const text = await retry.text();
+        throw new Error(`Failed to store secret: ${text}`);
+      }
+      const data = (await retry.json()) as { id: string };
+      return data.id;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to store secret: ${text}`);
+    }
+    const data = (await res.json()) as { id: string };
+    return data.id;
+  };
+
+  return create(name);
 }
 
 function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
-  const { tenantId, clientId, clientSecretRef, companyId, onSuccess } = props;
+  const {
+    tenantId,
+    clientId,
+    clientSecret,
+    clientSecretRef,
+    companyId,
+    onSuccess,
+    onSecretStored,
+  } = props;
 
   const testConnectionAction = usePluginAction("test-connection");
   const [testing, setTesting] = useState(false);
@@ -786,17 +847,35 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
     ok: boolean;
     error?: string | null;
   } | null>(null);
+  const [secretStatus, setSecretStatus] = useState<string | null>(null);
 
   const canTest =
     tenantId.trim().length > 0 &&
     clientId.trim().length > 0 &&
-    clientSecretRef.trim().length > 0;
+    (clientSecret.trim().length > 0 || clientSecretRef.trim().length > 0);
 
   const handleTest = useCallback(async () => {
     setTesting(true);
     setResult(null);
+    setSecretStatus(null);
+
     try {
-      const res = (await testConnectionAction({ companyId, tenantId, clientId, clientSecretRef })) as {
+      let resolvedRef = clientSecretRef;
+
+      // If user entered a raw secret and we have not yet stored it, store it now
+      if (clientSecret.trim().length > 0 && !clientSecretRef && companyId) {
+        setSecretStatus("Storing secret...");
+        resolvedRef = await storeSecret(companyId, "m365-client-secret", clientSecret);
+        onSecretStored(resolvedRef);
+        setSecretStatus("Secret stored securely");
+      }
+
+      const res = (await testConnectionAction({
+        companyId,
+        tenantId,
+        clientId,
+        clientSecretRef: resolvedRef,
+      })) as {
         ok: boolean;
         error?: string | null;
       };
@@ -805,6 +884,7 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
         onSuccess();
       }
     } catch (err) {
+      setSecretStatus(null);
       setResult({
         ok: false,
         error: err instanceof Error ? err.message : "Unknown error",
@@ -812,43 +892,59 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
     } finally {
       setTesting(false);
     }
-  }, [testConnectionAction, companyId, tenantId, clientId, clientSecretRef, onSuccess]);
+  }, [
+    testConnectionAction,
+    companyId,
+    tenantId,
+    clientId,
+    clientSecret,
+    clientSecretRef,
+    onSuccess,
+    onSecretStored,
+  ]);
 
   return (
     <div
       style={{
         marginTop: "4px",
         display: "flex",
-        alignItems: "center",
-        gap: "12px",
+        flexDirection: "column",
+        gap: "8px",
       }}
     >
-      <button
-        disabled={testing || !canTest}
-        onClick={handleTest}
-        style={{
-          padding: "6px 16px",
-          borderRadius: "6px",
-          border: "1px solid #e2e8f0",
-          backgroundColor: "#f8fafc",
-          color: "#334155",
-          fontSize: "14px",
-          cursor: testing || !canTest ? "not-allowed" : "pointer",
-          opacity: testing || !canTest ? 0.6 : 1,
-        }}
-      >
-        {testing ? "Testing..." : "Test Connection"}
-      </button>
-      {result && (
-        <span
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <button
+          disabled={testing || !canTest}
+          onClick={handleTest}
           style={{
-            color: result.ok ? "#16a34a" : "#dc2626",
+            padding: "6px 16px",
+            borderRadius: "6px",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "#f8fafc",
+            color: "#334155",
             fontSize: "14px",
+            cursor: testing || !canTest ? "not-allowed" : "pointer",
+            opacity: testing || !canTest ? 0.6 : 1,
           }}
         >
-          {result.ok
-            ? "Connection successful"
-            : result.error ?? "Connection failed"}
+          {testing ? "Testing..." : "Test Connection"}
+        </button>
+        {result && (
+          <span
+            style={{
+              color: result.ok ? "#16a34a" : "#dc2626",
+              fontSize: "14px",
+            }}
+          >
+            {result.ok
+              ? "Connection successful"
+              : result.error ?? "Connection failed"}
+          </span>
+        )}
+      </div>
+      {secretStatus && (
+        <span style={{ fontSize: "12px", color: "#16a34a" }}>
+          {secretStatus}
         </span>
       )}
     </div>

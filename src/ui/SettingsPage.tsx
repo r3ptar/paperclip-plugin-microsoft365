@@ -39,6 +39,7 @@ function configToFormState(cfg: PluginConfigData): ConfigFormState {
   return {
     tenantId: cfg.tenantId ?? "",
     clientId: cfg.clientId ?? "",
+    clientSecret: "",
     clientSecretRef: cfg.clientSecretRef ?? "",
     enablePlanner: cfg.enablePlanner ?? false,
     enableSharePoint: cfg.enableSharePoint ?? false,
@@ -61,6 +62,49 @@ function isDirty(current: ConfigFormState, saved: ConfigFormState): boolean {
   return (Object.keys(current) as Array<keyof ConfigFormState>).some(
     (key) => String(current[key]) !== String(saved[key]),
   );
+}
+
+/**
+ * Stores a raw secret value via the Paperclip secrets API and returns the
+ * generated UUID reference.  If a secret with the same name already exists
+ * (409 Conflict), a timestamp-suffixed name is used as a fallback.
+ */
+async function storeSecret(
+  companyId: string,
+  name: string,
+  value: string,
+): Promise<string> {
+  const create = async (secretName: string): Promise<string> => {
+    const res = await fetch(`/api/companies/${companyId}/secrets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: secretName, value }),
+    });
+
+    if (res.status === 409) {
+      const uniqueName = `${name}-${Date.now()}`;
+      const retry = await fetch(`/api/companies/${companyId}/secrets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: uniqueName, value }),
+      });
+      if (!retry.ok) {
+        const text = await retry.text();
+        throw new Error(`Failed to store secret: ${text}`);
+      }
+      const data = (await retry.json()) as { id: string };
+      return data.id;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to store secret: ${text}`);
+    }
+    const data = (await res.json()) as { id: string };
+    return data.id;
+  };
+
+  return create(name);
 }
 
 /** Check whether the config is "empty" (first-time setup). */
@@ -118,7 +162,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
     form != null &&
     form.tenantId.trim().length > 0 &&
     form.clientId.trim().length > 0 &&
-    form.clientSecretRef.trim().length > 0;
+    (form.clientSecret.trim().length > 0 || form.clientSecretRef.trim().length > 0);
 
   // Determine if we should show the wizard: config is empty and user has not
   // dismissed it, OR user explicitly clicked "Reconfigure".
@@ -146,9 +190,18 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
     setSaveSuccess(false);
 
     try {
+      // If user entered a new raw secret, store it first
+      let resolvedSecretRef = form.clientSecretRef;
+      if (form.clientSecret.trim().length > 0 && !form.clientSecretRef && context.companyId) {
+        resolvedSecretRef = await storeSecret(context.companyId, "m365-client-secret", form.clientSecret);
+        setForm((prev) => prev ? { ...prev, clientSecretRef: resolvedSecretRef, clientSecret: "" } : prev);
+      }
+
       // Convert digestRecipients from comma-separated string to array
       const payload = {
         ...form,
+        clientSecretRef: resolvedSecretRef,
+        clientSecret: undefined,
         digestRecipients: form.digestRecipients
           .split(",")
           .map((s) => s.trim())
@@ -180,11 +233,22 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
   }, [form, saveConfigAction, context.companyId, refresh]);
 
   const handleTestConnection = useCallback(async () => {
+    if (!form) return;
     setTesting(true);
     setTestResult(null);
     try {
+      // If user entered a new raw secret, store it before testing
+      let resolvedSecretRef = form.clientSecretRef;
+      if (form.clientSecret.trim().length > 0 && !form.clientSecretRef && context.companyId) {
+        resolvedSecretRef = await storeSecret(context.companyId, "m365-client-secret", form.clientSecret);
+        setForm((prev) => prev ? { ...prev, clientSecretRef: resolvedSecretRef, clientSecret: "" } : prev);
+      }
+
       const result = (await testConnectionAction({
         companyId: context.companyId,
+        tenantId: form.tenantId,
+        clientId: form.clientId,
+        clientSecretRef: resolvedSecretRef,
       })) as TestConnectionResult;
       setTestResult(result);
     } catch (err) {
@@ -195,7 +259,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
     } finally {
       setTesting(false);
     }
-  }, [testConnectionAction, context.companyId]);
+  }, [testConnectionAction, context.companyId, form]);
 
   const handleWizardComplete = useCallback(() => {
     // Wizard finished — switch to form view and reload data
@@ -301,14 +365,25 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
         </div>
 
         <div style={fieldRow}>
-          <span style={fieldLabel}>Client Secret Reference</span>
+          <span style={fieldLabel}>Client Secret</span>
           <input
-            type="text"
+            type="password"
             style={textInput}
-            placeholder="secret-ref://..."
-            value={form.clientSecretRef}
-            onChange={(e) => updateField("clientSecretRef", e.target.value)}
+            placeholder={form.clientSecretRef ? "Secret already configured (enter new value to replace)" : "Paste your Azure AD client secret"}
+            value={form.clientSecret}
+            onChange={(e) => {
+              updateField("clientSecret", e.target.value);
+              // Clear the existing ref so save will store the new value
+              if (e.target.value.trim().length > 0) {
+                updateField("clientSecretRef", "");
+              }
+            }}
           />
+          {form.clientSecretRef && !form.clientSecret && (
+            <span style={{ fontSize: "12px", color: "#16a34a" }}>
+              Secret stored securely
+            </span>
+          )}
         </div>
 
         {/* Test Connection */}

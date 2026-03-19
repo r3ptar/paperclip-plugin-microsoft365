@@ -34,6 +34,7 @@ export type PluginConfigData = {
 export type ConfigFormState = {
   tenantId: string;
   clientId: string;
+  clientSecret: string;
   clientSecretRef: string;
   enablePlanner: boolean;
   enableSharePoint: boolean;
