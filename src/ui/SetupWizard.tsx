@@ -188,17 +188,18 @@ const reviewRow: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   padding: "6px 0",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid rgba(128, 128, 128, 0.15)",
   fontSize: "13px",
 };
 
 const reviewLabel: React.CSSProperties = {
-  color: "#64748b",
+  opacity: 0.6,
+  color: "inherit",
   fontWeight: 500,
 };
 
 const reviewValue: React.CSSProperties = {
-  color: "#0f172a",
+  color: "inherit",
   fontWeight: 500,
   textAlign: "right",
   maxWidth: "60%",
@@ -211,8 +212,8 @@ const permBadge: React.CSSProperties = {
   borderRadius: "4px",
   fontSize: "11px",
   fontWeight: 500,
-  backgroundColor: "#f1f5f9",
-  color: "#475569",
+  backgroundColor: "rgba(128, 128, 128, 0.15)",
+  color: "inherit",
   marginRight: "6px",
   marginBottom: "4px",
 };
@@ -240,6 +241,13 @@ export function SetupWizard(props: SetupWizardProps) {
 
   const currentStepDef = activeSteps[state.step - 1];
   const totalSteps = activeSteps.length;
+
+  // -- Wizard credentials for data handlers (before config is saved) ----------
+  const wizardCredentials = useMemo(() => ({
+    tenantId: state.tenantId,
+    clientId: state.clientId,
+    clientSecret: state.clientSecret,
+  }), [state.tenantId, state.clientId, state.clientSecret]);
 
   // -- Field updater ----------------------------------------------------------
   const update = useCallback(
@@ -478,6 +486,7 @@ export function SetupWizard(props: SetupWizardProps) {
               }}
               companyId={companyId}
               placeholder="Select a group..."
+              credentials={wizardCredentials}
             />
             <GraphDropdown
               label="Planner Plan"
@@ -491,6 +500,7 @@ export function SetupWizard(props: SetupWizardProps) {
               disabled={!state.plannerGroupId}
               companyId={companyId}
               placeholder="Select a plan..."
+              credentials={wizardCredentials}
             />
             <div style={fieldRow}>
               <span style={fieldLabel}>Conflict Strategy</span>
@@ -503,7 +513,7 @@ export function SetupWizard(props: SetupWizardProps) {
                 <option value="paperclip_wins">Paperclip Wins</option>
                 <option value="planner_wins">Planner Wins</option>
               </select>
-              <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+              <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
                 Determines which side wins when both Paperclip and Planner have
                 changed the same task.
               </span>
@@ -533,6 +543,7 @@ export function SetupWizard(props: SetupWizardProps) {
               }}
               companyId={companyId}
               placeholder="Select a site..."
+              credentials={wizardCredentials}
             />
             <GraphDropdown
               label="Document Library (Drive)"
@@ -552,6 +563,7 @@ export function SetupWizard(props: SetupWizardProps) {
               disabled={!state.sharepointSiteId}
               companyId={companyId}
               placeholder="Select a drive..."
+              credentials={wizardCredentials}
             />
             <GraphDropdown
               label="Upload Folder (optional)"
@@ -565,6 +577,7 @@ export function SetupWizard(props: SetupWizardProps) {
               disabled={!state.sharepointDriveId}
               companyId={companyId}
               placeholder="Select a folder (optional)..."
+              credentials={wizardCredentials}
             />
           </>
         );
@@ -587,7 +600,7 @@ export function SetupWizard(props: SetupWizardProps) {
                   update("outlookCalendarName", "");
                 }}
               />
-              <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+              <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
                 The user whose calendar will be used for events and who will
                 send digest emails.
               </span>
@@ -604,6 +617,7 @@ export function SetupWizard(props: SetupWizardProps) {
               disabled={!state.digestSenderUserId.trim()}
               companyId={companyId}
               placeholder="Select a calendar..."
+              credentials={wizardCredentials}
             />
             <div style={{ ...fieldRow, marginTop: "4px" }}>
               <span style={fieldLabel}>Digest Recipients</span>
@@ -611,7 +625,7 @@ export function SetupWizard(props: SetupWizardProps) {
                 emails={state.digestRecipients}
                 onChange={(emails) => update("digestRecipients", emails)}
               />
-              <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+              <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
                 Email addresses that will receive periodic digest summaries.
               </span>
             </div>
@@ -741,7 +755,7 @@ export function SetupWizard(props: SetupWizardProps) {
             )}
 
             {saving && (
-              <div style={{ fontSize: "14px", color: "#64748b", marginTop: "8px" }}>
+              <div style={{ fontSize: "14px", opacity: 0.6, color: "inherit", marginTop: "8px" }}>
                 Saving configuration...
               </div>
             )}
@@ -875,6 +889,7 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
         tenantId,
         clientId,
         clientSecretRef: resolvedRef,
+        clientSecret: clientSecret.trim() || undefined,
       })) as {
         ok: boolean;
         error?: string | null;
@@ -919,9 +934,9 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
           style={{
             padding: "6px 16px",
             borderRadius: "6px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#f8fafc",
-            color: "#334155",
+            border: "1px solid rgba(128, 128, 128, 0.3)",
+            backgroundColor: "transparent",
+            color: "inherit",
             fontSize: "14px",
             cursor: testing || !canTest ? "not-allowed" : "pointer",
             opacity: testing || !canTest ? 0.6 : 1,

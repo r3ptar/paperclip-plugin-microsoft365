@@ -383,6 +383,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
             <span style={{ fontSize: "12px", color: "#16a34a" }}>
               Secret stored securely
             </span>
+
           )}
         </div>
 
@@ -587,7 +588,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
               value={form.digestRecipients}
               onChange={(e) => updateField("digestRecipients", e.target.value)}
             />
-            <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+            <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
               Comma-separated email addresses
             </span>
           </div>
@@ -604,7 +605,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
           {saving ? "Saving..." : "Save"}
         </button>
         {!dirty && !saveSuccess && (
-          <span style={{ fontSize: "13px", color: "#94a3b8" }}>
+          <span style={{ fontSize: "13px", opacity: 0.5, color: "inherit" }}>
             No unsaved changes
           </span>
         )}

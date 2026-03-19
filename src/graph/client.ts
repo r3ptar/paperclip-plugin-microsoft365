@@ -31,6 +31,9 @@ interface CircuitState {
 export class GraphClient {
   private circuit: CircuitState = { failures: 0, openUntil: 0 };
 
+  /** Optional company ID for activity logging. May be null during wizard setup. */
+  companyId: string | null = null;
+
   constructor(
     private readonly ctx: PluginContext,
     private readonly tokenManager: TokenManager,
@@ -58,11 +61,16 @@ export class GraphClient {
     };
 
     if (!options.silent) {
-      await this.ctx.activity.log({
-        companyId: "",
-        message: `Graph API ${method} ${path}`,
-        metadata: { service: this.serviceName, method, path },
-      });
+      try {
+        await this.ctx.activity.log({
+          companyId: this.companyId ?? "",
+          message: `Graph API ${method} ${path}`,
+          metadata: { service: this.serviceName, method, path },
+        });
+      } catch {
+        // Activity logging is best-effort — skip if companyId is unavailable
+        // (e.g., during Setup Wizard before config is saved)
+      }
     }
 
     let response = await doFetch(token);

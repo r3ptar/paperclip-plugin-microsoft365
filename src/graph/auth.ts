@@ -16,6 +16,7 @@ export class TokenManager {
     private readonly tenantId: string,
     private readonly clientId: string,
     private readonly clientSecretRef: string,
+    private readonly rawSecret?: string,
   ) {}
 
   async getToken(): Promise<string> {
@@ -44,17 +45,19 @@ export class TokenManager {
   }
 
   /** Check whether credentials can obtain a valid token. */
-  async healthCheck(): Promise<boolean> {
+  async healthCheck(): Promise<{ ok: boolean; error?: string }> {
     try {
       await this.forceRefresh();
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
 
   private async acquireToken(): Promise<string> {
-    const clientSecret = await this.ctx.secrets.resolve(this.clientSecretRef);
+    const clientSecret = this.rawSecret
+      ? this.rawSecret
+      : await this.ctx.secrets.resolve(this.clientSecretRef);
     const tokenUrl = OAUTH_TOKEN_URL.replace("{tenantId}", this.tenantId);
 
     const body = new URLSearchParams({

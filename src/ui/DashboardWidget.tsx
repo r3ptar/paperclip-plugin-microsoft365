@@ -33,7 +33,7 @@ export function M365DashboardWidget(props: PluginWidgetProps) {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Last Reconcile</span>
-          <span style={{ fontSize: "12px", color: "#64748b" }}>
+          <span style={{ fontSize: "12px", opacity: 0.6, color: "inherit" }}>
             {health?.lastReconcile ? new Date(health.lastReconcile as string).toLocaleTimeString() : "Never"}
           </span>
         </div>
@@ -50,10 +50,11 @@ export function M365DashboardWidget(props: PluginWidgetProps) {
           marginTop: "12px",
           padding: "4px 12px",
           borderRadius: "4px",
-          border: "1px solid #e2e8f0",
+          border: "1px solid rgba(128, 128, 128, 0.3)",
           fontSize: "12px",
           cursor: "pointer",
-          backgroundColor: "#f8fafc",
+          backgroundColor: "transparent",
+          color: "inherit",
         }}
       >
         Refresh

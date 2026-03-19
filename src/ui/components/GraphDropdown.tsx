@@ -15,6 +15,8 @@ export interface GraphDropdownProps {
   disabled?: boolean;
   companyId: string | null;
   placeholder?: string;
+  /** Wizard credentials passed through to data handlers before config is saved */
+  credentials?: { tenantId: string; clientId: string; clientSecret: string };
 }
 
 type GraphDropdownData = {
@@ -32,15 +34,19 @@ export function GraphDropdown(props: GraphDropdownProps) {
     disabled,
     companyId,
     placeholder,
+    credentials,
   } = props;
 
+  const fetchParams = disabled
+    ? undefined
+    : { companyId, ...params, ...credentials };
   const { data, loading, error } = usePluginData<GraphDropdownData>(
     dataHandler,
-    { companyId, ...params },
+    fetchParams,
   );
 
   const items = data?.items ?? [];
-  const dataError = data?.error ?? null;
+  const dataError = disabled ? null : (data?.error ?? null);
   const isDisabled = disabled || loading;
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -54,7 +60,7 @@ export function GraphDropdown(props: GraphDropdownProps) {
       <span style={fieldLabel}>{labelText}</span>
 
       {loading && (
-        <span style={{ fontSize: "13px", color: "#64748b" }}>Loading...</span>
+        <span style={{ fontSize: "13px", opacity: 0.6, color: "inherit" }}>Loading...</span>
       )}
 
       {error && (

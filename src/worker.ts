@@ -365,15 +365,17 @@ async function registerJobs(ctx: PluginContext): Promise<void> {
   ctx.jobs.register(JOB_KEYS.tokenHealthCheck, async (job: PluginJobContext) => {
     if (!tokenManager) return;
 
-    const healthy = await tokenManager.healthCheck();
+    const result = await tokenManager.healthCheck();
     await ctx.state.set(
       { scopeKind: "instance", stateKey: STATE_KEYS.syncHealth },
-      { tokenHealthy: healthy, checkedAt: new Date().toISOString() },
+      { tokenHealthy: result.ok, checkedAt: new Date().toISOString() },
     );
-    await ctx.metrics.write("m365.token.health", healthy ? 1 : 0);
+    await ctx.metrics.write("m365.token.health", result.ok ? 1 : 0);
 
-    if (!healthy) {
-      ctx.logger.error("Token health check failed — OAuth credentials may be invalid");
+    if (!result.ok) {
+      ctx.logger.error("Token health check failed — OAuth credentials may be invalid", {
+        error: result.error,
+      });
     }
   });
 }
@@ -470,10 +472,26 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
 
   // ── Setup Wizard data handlers ─────────────────────────────────────────────
 
-  ctx.data.register("m365-groups", async () => {
-    if (!configClient) return { error: "Azure AD credentials not configured" };
+  /**
+   * Returns the configClient if available, or creates a temporary GraphClient
+   * from wizard-provided credentials (tenantId, clientId, clientSecret passed
+   * as data handler params before config is saved).
+   */
+  function getWizardClient(params: Record<string, unknown>): GraphClient | null {
+    if (configClient) return configClient;
+    const tenantId = typeof params.tenantId === "string" ? params.tenantId : "";
+    const clientId = typeof params.clientId === "string" ? params.clientId : "";
+    const clientSecret = typeof params.clientSecret === "string" ? params.clientSecret : "";
+    if (!tenantId || !clientId || !clientSecret) return null;
+    const tm = new TokenManager(ctx, tenantId, clientId, "", clientSecret);
+    return new GraphClient(ctx, tm, "wizard");
+  }
+
+  ctx.data.register("m365-groups", async (params) => {
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
     try {
-      const res = await configClient.get<GraphListResponse<GraphGroup>>(
+      const res = await client.get<GraphListResponse<GraphGroup>>(
         "/groups?$filter=groupTypes/any(c:c eq 'Unified')&$select=id,displayName&$top=100",
       );
       return {
@@ -485,12 +503,13 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
   });
 
   ctx.data.register("m365-plans", async (params) => {
-    if (!configClient) return { error: "Azure AD credentials not configured" };
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
     const groupId = typeof params.groupId === "string" ? params.groupId : "";
     if (!groupId) return { error: "groupId is required" };
     if (!isValidGraphId(groupId)) return { error: "Invalid groupId format" };
     try {
-      const res = await configClient.get<GraphListResponse<PlannerPlan>>(
+      const res = await client.get<GraphListResponse<PlannerPlan>>(
         `/groups/${groupId}/planner/plans?$select=id,title`,
       );
       return {
@@ -501,10 +520,11 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
     }
   });
 
-  ctx.data.register("m365-sites", async () => {
-    if (!configClient) return { error: "Azure AD credentials not configured" };
+  ctx.data.register("m365-sites", async (params) => {
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
     try {
-      const res = await configClient.get<GraphListResponse<GraphSite>>(
+      const res = await client.get<GraphListResponse<GraphSite>>(
         "/sites?search=*&$select=id,displayName,webUrl&$top=100",
       );
       return {
@@ -516,12 +536,13 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
   });
 
   ctx.data.register("m365-drives", async (params) => {
-    if (!configClient) return { error: "Azure AD credentials not configured" };
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
     const siteId = typeof params.siteId === "string" ? params.siteId : "";
     if (!siteId) return { error: "siteId is required" };
     if (!isValidGraphId(siteId)) return { error: "Invalid siteId format" };
     try {
-      const res = await configClient.get<GraphListResponse<GraphDrive>>(
+      const res = await client.get<GraphListResponse<GraphDrive>>(
         `/sites/${siteId}/drives?$select=id,name,driveType`,
       );
       return {
@@ -533,12 +554,13 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
   });
 
   ctx.data.register("m365-folders", async (params) => {
-    if (!configClient) return { error: "Azure AD credentials not configured" };
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
     const driveId = typeof params.driveId === "string" ? params.driveId : "";
     if (!driveId) return { error: "driveId is required" };
     if (!isValidGraphId(driveId)) return { error: "Invalid driveId format" };
     try {
-      const res = await configClient.get<GraphListResponse<DriveItem>>(
+      const res = await client.get<GraphListResponse<DriveItem>>(
         `/drives/${driveId}/root/children?$select=id,name,folder`,
       );
       return {
@@ -552,12 +574,13 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
   });
 
   ctx.data.register("m365-calendars", async (params) => {
-    if (!configClient) return { error: "Azure AD credentials not configured" };
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
     const userId = typeof params.userId === "string" ? params.userId : "";
     if (!userId) return { error: "userId is required" };
     if (!isValidGraphId(userId)) return { error: "Invalid userId format" };
     try {
-      const res = await configClient.get<GraphListResponse<GraphCalendar>>(
+      const res = await client.get<GraphListResponse<GraphCalendar>>(
         `/users/${userId}/calendars?$select=id,name,isDefaultCalendar`,
       );
       return {
@@ -571,17 +594,19 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
 
 async function registerActionHandlers(ctx: PluginContext): Promise<void> {
   ctx.actions.register("test-connection", async (params) => {
-    const { tenantId, clientId, clientSecretRef } = (params ?? {}) as {
+    const { tenantId, clientId, clientSecretRef, clientSecret } = (params ?? {}) as {
       tenantId?: string;
       clientId?: string;
       clientSecretRef?: string;
+      clientSecret?: string;
     };
 
     let tm: TokenManager | null;
 
-    if (tenantId && clientId && clientSecretRef) {
+    if (tenantId && clientId && (clientSecret || clientSecretRef)) {
       // Use provided credentials (e.g. from Setup Wizard before config is saved)
-      tm = new TokenManager(ctx, tenantId, clientId, clientSecretRef);
+      // Pass raw secret directly to avoid ctx.secrets.resolve() scope issues
+      tm = new TokenManager(ctx, tenantId, clientId, clientSecretRef ?? "", clientSecret);
     } else {
       // Fall back to module-level instance (post-setup)
       tm = tokenManager;
@@ -590,8 +615,8 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
     if (!tm) {
       return { ok: false, error: "Azure AD credentials not configured" };
     }
-    const healthy = await tm.healthCheck();
-    return { ok: healthy, error: healthy ? null : "Failed to acquire OAuth token" };
+    const result = await tm.healthCheck();
+    return { ok: result.ok, error: result.ok ? null : result.error ?? "Failed to acquire OAuth token" };
   });
 
   ctx.actions.register("trigger-reconcile", async () => {

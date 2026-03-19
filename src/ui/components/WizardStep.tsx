@@ -21,7 +21,8 @@ export interface WizardStepProps {
 
 const stepIndicator: React.CSSProperties = {
   fontSize: "12px",
-  color: "#64748b",
+  opacity: 0.6,
+  color: "inherit",
   fontWeight: 600,
   textTransform: "uppercase",
   letterSpacing: "0.05em",
@@ -31,13 +32,14 @@ const stepIndicator: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: "18px",
   fontWeight: 600,
-  color: "#0f172a",
+  color: "inherit",
   margin: "0 0 4px",
 };
 
 const descriptionStyle: React.CSSProperties = {
   fontSize: "14px",
-  color: "#64748b",
+  opacity: 0.6,
+  color: "inherit",
   margin: "0 0 16px",
 };
 
@@ -47,13 +49,13 @@ const navRow: React.CSSProperties = {
   alignItems: "center",
   marginTop: "20px",
   paddingTop: "16px",
-  borderTop: "1px solid #e2e8f0",
+  borderTop: "1px solid rgba(128, 128, 128, 0.2)",
 };
 
 const progressBar: React.CSSProperties = {
   height: "4px",
   borderRadius: "2px",
-  backgroundColor: "#e2e8f0",
+  backgroundColor: "rgba(128, 128, 128, 0.2)",
   marginBottom: "16px",
   overflow: "hidden",
 };

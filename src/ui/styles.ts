@@ -1,7 +1,7 @@
 import type React from "react";
 
 export const card: React.CSSProperties = {
-  border: "1px solid #e2e8f0",
+  border: "1px solid rgba(128, 128, 128, 0.2)",
   borderRadius: "8px",
   padding: "16px",
   marginBottom: "12px",
@@ -9,7 +9,8 @@ export const card: React.CSSProperties = {
 
 export const label: React.CSSProperties = {
   fontSize: "12px",
-  color: "#64748b",
+  opacity: 0.6,
+  color: "inherit",
   fontWeight: 600,
   textTransform: "uppercase",
   letterSpacing: "0.05em",
@@ -35,17 +36,19 @@ export const fieldRow: React.CSSProperties = {
 export const fieldLabel: React.CSSProperties = {
   fontSize: "13px",
   fontWeight: 500,
-  color: "#334155",
+  color: "inherit",
 };
 
 export const textInput: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: "6px",
-  border: "1px solid #cbd5e1",
+  border: "1px solid rgba(128, 128, 128, 0.3)",
   fontSize: "14px",
   fontFamily: "inherit",
   width: "100%",
   boxSizing: "border-box",
+  color: "inherit",
+  backgroundColor: "transparent",
 };
 
 export const selectInput: React.CSSProperties = {
@@ -68,7 +71,7 @@ export const toggleRow: React.CSSProperties = {
 export const toggleLabel: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 500,
-  color: "#334155",
+  color: "inherit",
   cursor: "pointer",
   userSelect: "none",
 };
@@ -129,8 +132,9 @@ export const primaryButtonDisabled: React.CSSProperties = {
 export const secondaryButton: React.CSSProperties = {
   padding: "6px 16px",
   borderRadius: "6px",
-  border: "1px solid #e2e8f0",
-  backgroundColor: "#f8fafc",
+  border: "1px solid rgba(128, 128, 128, 0.3)",
+  backgroundColor: "transparent",
+  color: "inherit",
   fontSize: "14px",
   cursor: "pointer",
 };
