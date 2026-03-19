@@ -1,0 +1,308 @@
+import type { PaperclipPluginManifestV1 } from "@paperclipai/plugin-sdk";
+import {
+  DEFAULT_CONFIG,
+  EXPORT_NAMES,
+  JOB_KEYS,
+  PLUGIN_ID,
+  PLUGIN_VERSION,
+  SLOT_IDS,
+  TOOL_NAMES,
+  WEBHOOK_KEYS,
+} from "./constants.js";
+
+const manifest: PaperclipPluginManifestV1 = {
+  id: PLUGIN_ID,
+  apiVersion: 1,
+  version: PLUGIN_VERSION,
+  displayName: "Microsoft 365",
+  description:
+    "Connects Paperclip AI agents and human Microsoft 365 users as teammates. Syncs Planner tasks bidirectionally, enables document collaboration through SharePoint, and provides email-based communication between agents and humans for task updates, assignments, and requests.",
+  author: "Paperclip",
+  categories: ["connector", "automation"],
+
+  capabilities: [
+    // Data read
+    "companies.read",
+    "projects.read",
+    "issues.read",
+    "issues.create",
+    "issues.update",
+    "agents.read",
+
+    // Activity + metrics
+    "activity.log.write",
+    "metrics.write",
+
+    // Plugin state
+    "plugin.state.read",
+    "plugin.state.write",
+
+    // Runtime
+    "events.subscribe",
+    "events.emit",
+    "jobs.schedule",
+    "webhooks.receive",
+    "http.outbound",
+    "secrets.read-ref",
+
+    // Agent tools
+    "agent.tools.register",
+
+    // UI
+    "instance.settings.register",
+    "ui.detailTab.register",
+    "ui.dashboardWidget.register",
+  ],
+
+  entrypoints: {
+    worker: "./dist/worker.js",
+    ui: "./dist/ui",
+  },
+
+  instanceConfigSchema: {
+    type: "object",
+    properties: {
+      tenantId: {
+        type: "string",
+        title: "Azure AD Tenant ID",
+        description: "Your Azure AD tenant ID (directory ID)",
+      },
+      clientId: {
+        type: "string",
+        title: "Azure AD Client ID",
+        description: "Application (client) ID from your Azure AD app registration",
+      },
+      clientSecretRef: {
+        type: "string",
+        title: "Client Secret Reference",
+        description: "Secret reference for the Azure AD client secret",
+      },
+      enablePlanner: {
+        type: "boolean",
+        title: "Enable Planner Sync",
+        default: DEFAULT_CONFIG.enablePlanner,
+      },
+      enableSharePoint: {
+        type: "boolean",
+        title: "Enable SharePoint Integration",
+        default: DEFAULT_CONFIG.enableSharePoint,
+      },
+      enableOutlook: {
+        type: "boolean",
+        title: "Enable Outlook Integration",
+        default: DEFAULT_CONFIG.enableOutlook,
+      },
+      plannerPlanId: {
+        type: "string",
+        title: "Planner Plan ID",
+        description: "The ID of the Planner plan to sync with",
+      },
+      plannerGroupId: {
+        type: "string",
+        title: "Planner Group ID",
+        description: "The M365 Group that owns the Planner plan",
+      },
+      conflictStrategy: {
+        type: "string",
+        title: "Conflict Resolution Strategy",
+        enum: ["last_write_wins", "paperclip_wins", "planner_wins"],
+        default: DEFAULT_CONFIG.conflictStrategy,
+      },
+      sharepointSiteId: {
+        type: "string",
+        title: "SharePoint Site ID",
+      },
+      sharepointDriveId: {
+        type: "string",
+        title: "SharePoint Drive ID",
+      },
+      sharepointUploadFolderId: {
+        type: "string",
+        title: "SharePoint Upload Folder ID",
+      },
+      maxDocSizeBytes: {
+        type: "number",
+        title: "Max Document Size (bytes)",
+        default: DEFAULT_CONFIG.maxDocSizeBytes,
+      },
+      outlookCalendarId: {
+        type: "string",
+        title: "Outlook Calendar ID",
+      },
+      digestRecipients: {
+        type: "array",
+        title: "Digest Email Recipients",
+        items: { type: "string" },
+        default: DEFAULT_CONFIG.digestRecipients,
+      },
+      digestSenderUserId: {
+        type: "string",
+        title: "Digest Sender User ID",
+        description: "The user ID (or UPN) used to send digest emails",
+      },
+      webhookClientStateRef: {
+        type: "string",
+        title: "Webhook Client State Secret",
+        description: "Secret reference for Graph webhook clientState verification",
+      },
+      outlookMailboxUserId: {
+        type: "string",
+        title: "Inbound Email Mailbox User ID",
+        description: "The user ID (or UPN) of the mailbox monitored for inbound task email replies",
+      },
+      enableInboundEmail: {
+        type: "boolean",
+        title: "Enable Inbound Email Processing",
+        default: false,
+      },
+    },
+  },
+
+  jobs: [
+    {
+      jobKey: JOB_KEYS.plannerReconcile,
+      displayName: "Planner Reconciliation",
+      description: "Full bidirectional sync between Paperclip issues and Planner tasks",
+      schedule: "*/15 * * * *",
+    },
+    {
+      jobKey: JOB_KEYS.graphSubscriptionRenew,
+      displayName: "Graph Subscription Renewal",
+      description: "Renews Microsoft Graph webhook subscriptions before they expire",
+      schedule: "0 */12 * * *",
+    },
+    {
+      jobKey: JOB_KEYS.outlookDigest,
+      displayName: "Outlook Email Digest",
+      description: "Sends a daily digest of recent Paperclip activity to configured recipients",
+      schedule: "0 9 * * 1-5",
+    },
+    {
+      jobKey: JOB_KEYS.tokenHealthCheck,
+      displayName: "Token Health Check",
+      description: "Verifies OAuth tokens are functional",
+      schedule: "*/30 * * * *",
+    },
+  ],
+
+  webhooks: [
+    {
+      endpointKey: WEBHOOK_KEYS.graphNotifications,
+      displayName: "Graph Change Notifications",
+      description: "Receives Microsoft Graph change notifications for Planner task updates",
+    },
+    {
+      endpointKey: WEBHOOK_KEYS.mailNotifications,
+      displayName: "Mail Notifications",
+      description: "Receives Microsoft Graph change notifications for new emails in the configured mailbox",
+    },
+  ],
+
+  tools: [
+    {
+      name: TOOL_NAMES.sharepointSearch,
+      displayName: "SharePoint Search",
+      description: "Search documents in the configured SharePoint site. Returns document titles, snippets, and IDs.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search query string" },
+          maxResults: { type: "number", description: "Maximum number of results (default: 10)" },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: TOOL_NAMES.sharepointRead,
+      displayName: "SharePoint Read Document",
+      description: "Read the text content of a SharePoint/OneDrive document by drive and item ID.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          driveId: { type: "string", description: "The drive ID containing the document" },
+          itemId: { type: "string", description: "The item ID of the document" },
+        },
+        required: ["driveId", "itemId"],
+      },
+    },
+    {
+      name: TOOL_NAMES.sharepointUpload,
+      displayName: "SharePoint Upload",
+      description: "Upload a file to the configured SharePoint upload folder.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          fileName: { type: "string", description: "Name for the uploaded file" },
+          content: { type: "string", description: "File content to upload" },
+          contentType: { type: "string", description: "MIME type (default: text/plain)" },
+        },
+        required: ["fileName", "content"],
+      },
+    },
+    {
+      name: TOOL_NAMES.plannerStatus,
+      displayName: "Planner Task Status",
+      description: "Check the linked Planner task status for a Paperclip issue.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          issueId: { type: "string", description: "The Paperclip issue ID to check" },
+        },
+        required: ["issueId"],
+      },
+    },
+    {
+      name: TOOL_NAMES.outlookSendTaskEmail,
+      displayName: "Send Task Email",
+      description:
+        "Send an email to a person about a specific Paperclip issue. Use for assignments, status updates, blockers, or requesting input.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          issueId: { type: "string", description: "The Paperclip issue ID" },
+          recipientEmail: { type: "string", description: "Email address of the recipient" },
+          emailType: {
+            type: "string",
+            enum: ["assignment", "status_change", "blocked", "request", "custom"],
+            description: "Type of email (default: custom)",
+          },
+          customMessage: { type: "string", description: "Custom message to include" },
+        },
+        required: ["issueId", "recipientEmail"],
+      },
+    },
+  ],
+
+  ui: {
+    slots: [
+      {
+        type: "settingsPage",
+        id: SLOT_IDS.settingsPage,
+        displayName: "Microsoft 365 Settings",
+        exportName: EXPORT_NAMES.settingsPage,
+      },
+      {
+        type: "dashboardWidget",
+        id: SLOT_IDS.dashboardWidget,
+        displayName: "M365 Sync Health",
+        exportName: EXPORT_NAMES.dashboardWidget,
+      },
+      {
+        type: "detailTab",
+        id: SLOT_IDS.issueTab,
+        displayName: "Microsoft 365",
+        exportName: EXPORT_NAMES.issueTab,
+        entityTypes: ["issue"],
+      },
+      {
+        type: "detailTab",
+        id: SLOT_IDS.projectTab,
+        displayName: "SharePoint",
+        exportName: EXPORT_NAMES.projectTab,
+        entityTypes: ["project"],
+      },
+    ],
+  },
+};
+
+export default manifest;
