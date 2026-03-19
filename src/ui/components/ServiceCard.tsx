@@ -12,7 +12,7 @@ export interface ServiceCardProps {
 const enabledCard: React.CSSProperties = {
   ...card,
   borderColor: "#2563eb",
-  backgroundColor: "rgba(37, 99, 235, 0.08)",
+  backgroundColor: "var(--accent)",
 };
 
 const serviceHeader: React.CSSProperties = {
@@ -25,7 +25,7 @@ const serviceHeader: React.CSSProperties = {
 const serviceName: React.CSSProperties = {
   fontSize: "15px",
   fontWeight: 600,
-  color: "inherit",
+  color: "var(--card-foreground)",
   display: "flex",
   alignItems: "center",
   gap: "8px",
@@ -33,8 +33,7 @@ const serviceName: React.CSSProperties = {
 
 const descStyle: React.CSSProperties = {
   fontSize: "13px",
-  opacity: 0.7,
-  color: "inherit",
+  color: "var(--muted-foreground)",
   marginBottom: "10px",
 };
 
@@ -44,8 +43,8 @@ const permissionBadge: React.CSSProperties = {
   borderRadius: "4px",
   fontSize: "11px",
   fontWeight: 500,
-  backgroundColor: "rgba(128, 128, 128, 0.15)",
-  color: "inherit",
+  backgroundColor: "var(--muted)",
+  color: "var(--muted-foreground)",
   marginRight: "6px",
   marginBottom: "4px",
 };
@@ -79,7 +78,7 @@ export function ServiceCard(props: ServiceCardProps) {
             checked={enabled}
             onChange={(e) => onToggle(e.target.checked)}
           />
-          <span style={{ fontSize: "13px", fontWeight: 500, color: "inherit", userSelect: "none" }}>
+          <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", userSelect: "none" }}>
             {enabled ? "Enabled" : "Disabled"}
           </span>
         </label>

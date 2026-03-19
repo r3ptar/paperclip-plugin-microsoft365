@@ -60,7 +60,7 @@ export function GraphDropdown(props: GraphDropdownProps) {
       <span style={fieldLabel}>{labelText}</span>
 
       {loading && (
-        <span style={{ fontSize: "13px", opacity: 0.6, color: "inherit" }}>Loading...</span>
+        <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>Loading...</span>
       )}
 
       {error && (

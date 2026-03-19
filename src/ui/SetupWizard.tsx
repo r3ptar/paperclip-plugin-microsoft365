@@ -188,18 +188,17 @@ const reviewRow: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   padding: "6px 0",
-  borderBottom: "1px solid rgba(128, 128, 128, 0.15)",
+  borderBottom: "1px solid var(--border)",
   fontSize: "13px",
 };
 
 const reviewLabel: React.CSSProperties = {
-  opacity: 0.6,
-  color: "inherit",
+  color: "var(--muted-foreground)",
   fontWeight: 500,
 };
 
 const reviewValue: React.CSSProperties = {
-  color: "inherit",
+  color: "var(--foreground)",
   fontWeight: 500,
   textAlign: "right",
   maxWidth: "60%",
@@ -212,8 +211,8 @@ const permBadge: React.CSSProperties = {
   borderRadius: "4px",
   fontSize: "11px",
   fontWeight: 500,
-  backgroundColor: "rgba(128, 128, 128, 0.15)",
-  color: "inherit",
+  backgroundColor: "var(--muted)",
+  color: "var(--muted-foreground)",
   marginRight: "6px",
   marginBottom: "4px",
 };
@@ -513,7 +512,7 @@ export function SetupWizard(props: SetupWizardProps) {
                 <option value="paperclip_wins">Paperclip Wins</option>
                 <option value="planner_wins">Planner Wins</option>
               </select>
-              <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
                 Determines which side wins when both Paperclip and Planner have
                 changed the same task.
               </span>
@@ -600,7 +599,7 @@ export function SetupWizard(props: SetupWizardProps) {
                   update("outlookCalendarName", "");
                 }}
               />
-              <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
                 The user whose calendar will be used for events and who will
                 send digest emails.
               </span>
@@ -625,7 +624,7 @@ export function SetupWizard(props: SetupWizardProps) {
                 emails={state.digestRecipients}
                 onChange={(emails) => update("digestRecipients", emails)}
               />
-              <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
                 Email addresses that will receive periodic digest summaries.
               </span>
             </div>
@@ -755,7 +754,7 @@ export function SetupWizard(props: SetupWizardProps) {
             )}
 
             {saving && (
-              <div style={{ fontSize: "14px", opacity: 0.6, color: "inherit", marginTop: "8px" }}>
+              <div style={{ fontSize: "14px", color: "var(--muted-foreground)", marginTop: "8px" }}>
                 Saving configuration...
               </div>
             )}
@@ -934,9 +933,9 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
           style={{
             padding: "6px 16px",
             borderRadius: "6px",
-            border: "1px solid rgba(128, 128, 128, 0.3)",
-            backgroundColor: "transparent",
-            color: "inherit",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--secondary)",
+            color: "var(--secondary-foreground)",
             fontSize: "14px",
             cursor: testing || !canTest ? "not-allowed" : "pointer",
             opacity: testing || !canTest ? 0.6 : 1,
@@ -947,7 +946,7 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
         {result && (
           <span
             style={{
-              color: result.ok ? "#16a34a" : "#dc2626",
+              color: result.ok ? "#16a34a" : "var(--destructive)",
               fontSize: "14px",
             }}
           >
@@ -958,7 +957,7 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
         )}
       </div>
       {secretStatus && (
-        <span style={{ fontSize: "12px", color: "#16a34a" }}>
+        <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
           {secretStatus}
         </span>
       )}

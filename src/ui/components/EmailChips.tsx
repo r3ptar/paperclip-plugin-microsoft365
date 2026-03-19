@@ -22,8 +22,8 @@ const chip: React.CSSProperties = {
   borderRadius: "16px",
   fontSize: "13px",
   fontWeight: 500,
-  backgroundColor: "rgba(99, 102, 241, 0.15)",
-  color: "inherit",
+  backgroundColor: "var(--accent)",
+  color: "var(--accent-foreground)",
 };
 
 const removeButton: React.CSSProperties = {
@@ -32,8 +32,7 @@ const removeButton: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "14px",
   fontWeight: 700,
-  color: "inherit",
-  opacity: 0.7,
+  color: "var(--muted-foreground)",
   padding: "0 2px",
   lineHeight: "1",
 };
@@ -47,9 +46,9 @@ const addRow: React.CSSProperties = {
 const addButton: React.CSSProperties = {
   padding: "6px 14px",
   borderRadius: "6px",
-  border: "1px solid rgba(128, 128, 128, 0.3)",
-  backgroundColor: "transparent",
-  color: "inherit",
+  border: "1px solid var(--border)",
+  backgroundColor: "var(--secondary)",
+  color: "var(--secondary-foreground)",
   fontSize: "13px",
   fontWeight: 500,
   cursor: "pointer",

@@ -12,7 +12,7 @@ export function M365DashboardWidget(props: PluginWidgetProps) {
   });
 
   if (loading) return <div style={{ padding: "12px" }}>Loading sync health...</div>;
-  if (error) return <div style={{ padding: "12px", color: "#dc2626" }}>Error loading health</div>;
+  if (error) return <div style={{ padding: "12px", color: "var(--destructive)" }}>Error loading health</div>;
 
   const health = data;
   const tokenOk = health?.health?.tokenHealthy ?? false;
@@ -33,7 +33,7 @@ export function M365DashboardWidget(props: PluginWidgetProps) {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Last Reconcile</span>
-          <span style={{ fontSize: "12px", opacity: 0.6, color: "inherit" }}>
+          <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
             {health?.lastReconcile ? new Date(health.lastReconcile as string).toLocaleTimeString() : "Never"}
           </span>
         </div>
@@ -50,11 +50,11 @@ export function M365DashboardWidget(props: PluginWidgetProps) {
           marginTop: "12px",
           padding: "4px 12px",
           borderRadius: "4px",
-          border: "1px solid rgba(128, 128, 128, 0.3)",
+          border: "1px solid var(--border)",
           fontSize: "12px",
           cursor: "pointer",
-          backgroundColor: "transparent",
-          color: "inherit",
+          backgroundColor: "var(--secondary)",
+          color: "var(--secondary-foreground)",
         }}
       >
         Refresh

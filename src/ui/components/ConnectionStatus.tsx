@@ -55,7 +55,7 @@ export function ConnectionStatus(props: ConnectionStatusProps) {
       {result && (
         <span
           style={{
-            color: result.ok ? "#16a34a" : "#dc2626",
+            color: result.ok ? "#16a34a" : "var(--destructive)",
             fontSize: "14px",
           }}
         >

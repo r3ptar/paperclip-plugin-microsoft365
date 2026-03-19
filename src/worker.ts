@@ -524,14 +524,33 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
     const client = getWizardClient(params);
     if (!client) return { error: "Azure AD credentials not configured" };
     try {
+      // Try search first (returns all sites)
       const res = await client.get<GraphListResponse<GraphSite>>(
         "/sites?search=*&$select=id,displayName,webUrl&$top=100",
       );
-      return {
-        items: res.value.map((s) => ({ id: s.id, name: s.displayName })),
-      };
+      const items = res.value.map((s) => ({ id: s.id, name: s.displayName || s.webUrl }));
+
+      // If search returned nothing, try getting the root site directly
+      if (items.length === 0) {
+        try {
+          const root = await client.get<GraphSite>("/sites/root?$select=id,displayName,webUrl");
+          items.push({ id: root.id, name: root.displayName || "Root Site" });
+        } catch {
+          // Root site not accessible, continue with empty list
+        }
+      }
+
+      return { items };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) };
+      // If search fails, try listing root site as fallback
+      try {
+        const root = await client.get<GraphSite>("/sites/root?$select=id,displayName,webUrl");
+        return {
+          items: [{ id: root.id, name: root.displayName || "Root Site" }],
+        };
+      } catch {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
     }
   });
 

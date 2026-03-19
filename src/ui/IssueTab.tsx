@@ -13,7 +13,7 @@ export function M365IssueTab(props: PluginDetailTabProps) {
   });
 
   if (loading) return <div style={{ padding: "16px" }}>Loading M365 data...</div>;
-  if (error) return <div style={{ padding: "16px", color: "#dc2626" }}>Error: {error.message}</div>;
+  if (error) return <div style={{ padding: "16px", color: "var(--destructive)" }}>Error: {error.message}</div>;
 
   const { plannerTask, calendarEvent } = data ?? { plannerTask: null, calendarEvent: null };
 
@@ -23,18 +23,18 @@ export function M365IssueTab(props: PluginDetailTabProps) {
         <div style={label}>Planner Task</div>
         {plannerTask ? (
           <div style={{ marginTop: "8px" }}>
-            <div style={{ fontWeight: 500 }}>{plannerTask.title ?? "Untitled"}</div>
-            <div style={{ fontSize: "13px", opacity: 0.6, color: "inherit", marginTop: "4px" }}>
+            <div style={{ fontWeight: 500, color: "var(--foreground)" }}>{plannerTask.title ?? "Untitled"}</div>
+            <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
               Status: <span style={badge("#2563eb")}>{plannerTask.status ?? "unknown"}</span>
             </div>
-            <div style={{ fontSize: "12px", opacity: 0.5, color: "inherit", marginTop: "4px" }}>
+            <div style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "4px" }}>
               Last synced: {plannerTask.data?.lastSyncedAt
                 ? new Date(plannerTask.data.lastSyncedAt).toLocaleString()
                 : "Unknown"}
             </div>
           </div>
         ) : (
-          <div style={{ marginTop: "8px", opacity: 0.5, color: "inherit", fontSize: "13px" }}>
+          <div style={{ marginTop: "8px", color: "var(--muted-foreground)", fontSize: "13px" }}>
             No linked Planner task
           </div>
         )}
@@ -44,13 +44,13 @@ export function M365IssueTab(props: PluginDetailTabProps) {
         <div style={label}>Calendar Event</div>
         {calendarEvent ? (
           <div style={{ marginTop: "8px" }}>
-            <div style={{ fontWeight: 500 }}>{calendarEvent.title ?? "Deadline"}</div>
-            <div style={{ fontSize: "13px", opacity: 0.6, color: "inherit", marginTop: "4px" }}>
+            <div style={{ fontWeight: 500, color: "var(--foreground)" }}>{calendarEvent.title ?? "Deadline"}</div>
+            <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
               Due: {calendarEvent.data?.dueDate ?? "—"}
             </div>
           </div>
         ) : (
-          <div style={{ marginTop: "8px", opacity: 0.5, color: "inherit", fontSize: "13px" }}>
+          <div style={{ marginTop: "8px", color: "var(--muted-foreground)", fontSize: "13px" }}>
             No linked calendar event
           </div>
         )}

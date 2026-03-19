@@ -1,7 +1,15 @@
 import type React from "react";
 
+// ---------------------------------------------------------------------------
+// Host theme integration
+// ---------------------------------------------------------------------------
+// Paperclip defines CSS custom properties (--background, --foreground, etc.)
+// that switch between light and dark themes automatically. We use these
+// variables so the plugin UI integrates seamlessly with the host theme.
+// ---------------------------------------------------------------------------
+
 export const card: React.CSSProperties = {
-  border: "1px solid rgba(128, 128, 128, 0.2)",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
   padding: "16px",
   marginBottom: "12px",
@@ -9,8 +17,7 @@ export const card: React.CSSProperties = {
 
 export const label: React.CSSProperties = {
   fontSize: "12px",
-  opacity: 0.6,
-  color: "inherit",
+  color: "var(--muted-foreground)",
   fontWeight: 600,
   textTransform: "uppercase",
   letterSpacing: "0.05em",
@@ -36,19 +43,19 @@ export const fieldRow: React.CSSProperties = {
 export const fieldLabel: React.CSSProperties = {
   fontSize: "13px",
   fontWeight: 500,
-  color: "inherit",
+  color: "var(--foreground)",
 };
 
 export const textInput: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: "6px",
-  border: "1px solid rgba(128, 128, 128, 0.3)",
+  border: "1px solid var(--input)",
   fontSize: "14px",
   fontFamily: "inherit",
   width: "100%",
   boxSizing: "border-box",
-  color: "inherit",
-  backgroundColor: "transparent",
+  color: "var(--foreground)",
+  backgroundColor: "var(--background)",
 };
 
 export const selectInput: React.CSSProperties = {
@@ -71,7 +78,7 @@ export const toggleRow: React.CSSProperties = {
 export const toggleLabel: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 500,
-  color: "inherit",
+  color: "var(--foreground)",
   cursor: "pointer",
   userSelect: "none",
 };
@@ -132,9 +139,9 @@ export const primaryButtonDisabled: React.CSSProperties = {
 export const secondaryButton: React.CSSProperties = {
   padding: "6px 16px",
   borderRadius: "6px",
-  border: "1px solid rgba(128, 128, 128, 0.3)",
-  backgroundColor: "transparent",
-  color: "inherit",
+  border: "1px solid var(--border)",
+  backgroundColor: "var(--secondary)",
+  color: "var(--secondary-foreground)",
   fontSize: "14px",
   cursor: "pointer",
 };

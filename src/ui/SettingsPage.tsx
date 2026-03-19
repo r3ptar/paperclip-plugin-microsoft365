@@ -282,7 +282,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
   }
   if (error) {
     return (
-      <div style={{ padding: "20px", color: "#dc2626" }}>
+      <div style={{ padding: "20px", color: "var(--destructive)" }}>
         Error: {error.message}
       </div>
     );
@@ -380,7 +380,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
             }}
           />
           {form.clientSecretRef && !form.clientSecret && (
-            <span style={{ fontSize: "12px", color: "#16a34a" }}>
+            <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
               Secret stored securely
             </span>
 
@@ -404,7 +404,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
             <span
               style={{
                 marginLeft: "12px",
-                color: testResult.ok ? "#16a34a" : "#dc2626",
+                color: testResult.ok ? "#16a34a" : "var(--destructive)",
                 fontSize: "14px",
               }}
             >
@@ -588,7 +588,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
               value={form.digestRecipients}
               onChange={(e) => updateField("digestRecipients", e.target.value)}
             />
-            <span style={{ fontSize: "12px", opacity: 0.5, color: "inherit" }}>
+            <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
               Comma-separated email addresses
             </span>
           </div>
@@ -605,7 +605,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
           {saving ? "Saving..." : "Save"}
         </button>
         {!dirty && !saveSuccess && (
-          <span style={{ fontSize: "13px", opacity: 0.5, color: "inherit" }}>
+          <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
             No unsaved changes
           </span>
         )}
