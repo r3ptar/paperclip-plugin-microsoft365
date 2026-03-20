@@ -29,7 +29,7 @@ import type {
   TestConnectionResult,
 } from "./types.js";
 import { SetupWizard } from "./SetupWizard.js";
-import { KeyValueEditor } from "./components/index.js";
+import { KeyValueEditor, GraphDropdown } from "./components/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -491,19 +491,17 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
       <div style={card}>
         <div style={label}>Agentic Identity</div>
 
-        <div style={fieldRow}>
-          <span style={fieldLabel}>Default Service User ID</span>
-          <input
-            type="text"
-            style={textInput}
-            placeholder="service-account@yourtenant.com"
-            value={form.defaultServiceUserId}
-            onChange={(e) => updateField("defaultServiceUserId", e.target.value)}
-          />
-          <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-            Fallback M365 user for unmapped agents and background jobs
-          </span>
-        </div>
+        <GraphDropdown
+          label="Default Service User"
+          dataHandler="m365-users"
+          value={form.defaultServiceUserId}
+          onChange={(id) => updateField("defaultServiceUserId", id)}
+          companyId={context.companyId}
+          placeholder="Select a user..."
+        />
+        <span style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "-8px", marginBottom: "12px", display: "block" }}>
+          Fallback M365 user for unmapped agents and background jobs
+        </span>
 
         <div style={fieldRow}>
           <span style={fieldLabel}>Agent Identity Map</span>
@@ -669,27 +667,29 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
         <div style={card}>
           <div style={label}>Teams Configuration</div>
 
-          <div style={fieldRow}>
-            <span style={fieldLabel}>Team ID</span>
-            <input
-              type="text"
-              style={textInput}
-              placeholder="Teams Team ID"
-              value={form.teamsTeamId}
-              onChange={(e) => updateField("teamsTeamId", e.target.value)}
-            />
-          </div>
+          <GraphDropdown
+            label="Team"
+            dataHandler="m365-teams"
+            value={form.teamsTeamId}
+            onChange={(id) => {
+              updateField("teamsTeamId", id);
+              // Reset channel when team changes
+              updateField("teamsDefaultChannelId", "");
+            }}
+            companyId={context.companyId}
+            placeholder="Select a team..."
+          />
 
-          <div style={fieldRow}>
-            <span style={fieldLabel}>Default Channel ID</span>
-            <input
-              type="text"
-              style={textInput}
-              placeholder="Default channel for notifications"
-              value={form.teamsDefaultChannelId}
-              onChange={(e) => updateField("teamsDefaultChannelId", e.target.value)}
-            />
-          </div>
+          <GraphDropdown
+            label="Default Channel"
+            dataHandler="m365-teams-channels"
+            params={{ teamId: form.teamsTeamId }}
+            value={form.teamsDefaultChannelId}
+            onChange={(id) => updateField("teamsDefaultChannelId", id)}
+            disabled={!form.teamsTeamId}
+            companyId={context.companyId}
+            placeholder="Select a channel..."
+          />
         </div>
       )}
 
@@ -698,19 +698,17 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
         <div style={card}>
           <div style={label}>Meetings Configuration</div>
 
-          <div style={fieldRow}>
-            <span style={fieldLabel}>Organizer User ID</span>
-            <input
-              type="text"
-              style={textInput}
-              placeholder="user@yourtenant.com"
-              value={form.meetingOrganizerUserId}
-              onChange={(e) => updateField("meetingOrganizerUserId", e.target.value)}
-            />
-            <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-              Default M365 user who organizes meetings
-            </span>
-          </div>
+          <GraphDropdown
+            label="Meeting Organizer"
+            dataHandler="m365-users"
+            value={form.meetingOrganizerUserId}
+            onChange={(id) => updateField("meetingOrganizerUserId", id)}
+            companyId={context.companyId}
+            placeholder="Select a user..."
+          />
+          <span style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "-8px", marginBottom: "12px", display: "block" }}>
+            Default M365 user who organizes meetings
+          </span>
 
           <div style={fieldRow}>
             <span style={fieldLabel}>Default Duration (minutes)</span>
