@@ -92,26 +92,35 @@ async function storeSecret(
     });
 
     if (res.status === 409) {
-      const uniqueName = `${name}-${Date.now()}`;
-      const retry = await fetch(`/api/companies/${companyId}/secrets`, {
-        method: "POST",
+      // Name already exists — update the existing secret via PUT
+      const update = await fetch(`/api/companies/${companyId}/secrets/${encodeURIComponent(secretName)}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: uniqueName, value }),
+        body: JSON.stringify({ value }),
       });
-      if (!retry.ok) {
-        const text = await retry.text();
-        throw new Error(`Failed to store secret: ${text}`);
+      if (!update.ok) {
+        // Fallback: create with a unique name
+        const uniqueName = `${name}-${Date.now()}`;
+        const retry = await fetch(`/api/companies/${companyId}/secrets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: uniqueName, value }),
+        });
+        if (!retry.ok) {
+          const text = await retry.text();
+          throw new Error(`Failed to store secret: ${text}`);
+        }
+        return uniqueName;
       }
-      const data = (await retry.json()) as { id: string };
-      return data.id;
+      return secretName;
     }
 
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Failed to store secret: ${text}`);
     }
-    const data = (await res.json()) as { id: string };
-    return data.id;
+    // Return the secret name — ctx.secrets.resolve() expects the name, not the UUID
+    return secretName;
   };
 
   return create(name);
