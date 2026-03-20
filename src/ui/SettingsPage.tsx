@@ -92,26 +92,9 @@ async function storeSecret(
     });
 
     if (res.status === 409) {
-      // Name already exists — update the existing secret via PUT
-      const update = await fetch(`/api/companies/${companyId}/secrets/${encodeURIComponent(secretName)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value }),
-      });
-      if (!update.ok) {
-        // Fallback: create with a unique name
-        const uniqueName = `${name}-${Date.now()}`;
-        const retry = await fetch(`/api/companies/${companyId}/secrets`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: uniqueName, value }),
-        });
-        if (!retry.ok) {
-          const text = await retry.text();
-          throw new Error(`Failed to store secret: ${text}`);
-        }
-        return uniqueName;
-      }
+      // Secret with this name already exists — reuse it.
+      // ctx.secrets.resolve() looks up by name, so returning the
+      // existing name is correct even if the value is unchanged.
       return secretName;
     }
 
