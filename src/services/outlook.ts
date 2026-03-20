@@ -121,14 +121,16 @@ export class OutlookService {
       saveToSentItems: false,
     });
 
-    try {
-      await this.ctx.activity.log({
-        companyId: "",
-        message: `Sent Outlook digest to ${digestRecipients.length} recipients`,
-        metadata: { recipients: digestRecipients.length, subject },
-      });
-    } catch {
-      // Activity logging is best-effort
+    if (this.graph.companyId) {
+      try {
+        await this.ctx.activity.log({
+          companyId: this.graph.companyId,
+          message: `Sent Outlook digest to ${digestRecipients.length} recipients`,
+          metadata: { recipients: digestRecipients.length, subject },
+        });
+      } catch {
+        // Activity logging is best-effort
+      }
     }
 
     this.ctx.logger.info("Sent email digest", {
@@ -168,14 +170,16 @@ export class OutlookService {
       saveToSentItems: false,
     });
 
-    try {
-      await this.ctx.activity.log({
-        companyId: "",
-        message: `Sent ${emailType} email for issue ${issue.id} to ${recipientEmail}`,
-        metadata: { issueId: issue.id, emailType, recipient: recipientEmail },
-      });
-    } catch {
-      // Activity logging is best-effort
+    if (this.graph.companyId) {
+      try {
+        await this.ctx.activity.log({
+          companyId: this.graph.companyId,
+          message: `Sent ${emailType} email for issue ${issue.id} to ${recipientEmail}`,
+          metadata: { issueId: issue.id, emailType, recipient: recipientEmail },
+        });
+      } catch {
+        // Activity logging is best-effort
+      }
     }
 
     this.ctx.logger.info("Sent task email", {

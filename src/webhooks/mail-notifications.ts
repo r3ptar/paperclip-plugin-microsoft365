@@ -57,14 +57,12 @@ export async function handleMailNotification(
 
   for (const item of notification.value) {
     try {
-      await ctx.activity.log({
-        companyId: "",
-        message: `Mail notification: ${item.changeType} on ${item.resource}`,
-        metadata: {
-          changeType: item.changeType,
-          resource: item.resource,
-          subscriptionId: item.subscriptionId,
-        },
+      // Skip activity logging here — companyId is not available until after
+      // entity/issue lookup. The ctx.logger call below provides observability.
+      ctx.logger.info("Processing mail notification", {
+        changeType: item.changeType,
+        resource: item.resource,
+        subscriptionId: item.subscriptionId,
       });
 
       const messageId = item.resourceData?.id;

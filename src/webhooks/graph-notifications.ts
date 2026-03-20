@@ -56,14 +56,12 @@ export async function handleGraphNotification(
 
   for (const item of notification.value) {
     try {
-      await ctx.activity.log({
-        companyId: "",
-        message: `Graph notification: ${item.changeType} on ${item.resource}`,
-        metadata: {
-          changeType: item.changeType,
-          resource: item.resource,
-          subscriptionId: item.subscriptionId,
-        },
+      // Skip activity logging here — companyId is not available until after
+      // entity lookup. The ctx.logger call below provides observability.
+      ctx.logger.info("Processing Graph notification", {
+        changeType: item.changeType,
+        resource: item.resource,
+        subscriptionId: item.subscriptionId,
       });
 
       const taskId = item.resourceData?.id;

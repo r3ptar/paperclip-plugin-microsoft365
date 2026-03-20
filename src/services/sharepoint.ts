@@ -73,16 +73,18 @@ export class SharePointService {
       );
     }
 
-    try {
-      await this.ctx.activity.log({
-        companyId: "",
-        entityType: "document",
-        entityId: itemId,
-        message: `Reading SharePoint document: ${item.name}`,
-        metadata: { driveId, itemId, size: item.size },
-      });
-    } catch {
-      // Activity logging is best-effort
+    if (this.graph.companyId) {
+      try {
+        await this.ctx.activity.log({
+          companyId: this.graph.companyId,
+          entityType: "document",
+          entityId: itemId,
+          message: `Reading SharePoint document: ${item.name}`,
+          metadata: { driveId, itemId, size: item.size },
+        });
+      } catch {
+        // Activity logging is best-effort
+      }
     }
 
     // Download content as raw text (not JSON)
@@ -117,20 +119,22 @@ export class SharePointService {
       },
     );
 
-    try {
-      await this.ctx.activity.log({
-        companyId: "",
-        entityType: "document",
-        entityId: item.id,
-        message: `Uploaded document to SharePoint: ${fileName}`,
-        metadata: {
-          driveId: sharepointDriveId,
-          itemId: item.id,
-          size: item.size,
-        },
-      });
-    } catch {
-      // Activity logging is best-effort
+    if (this.graph.companyId) {
+      try {
+        await this.ctx.activity.log({
+          companyId: this.graph.companyId,
+          entityType: "document",
+          entityId: item.id,
+          message: `Uploaded document to SharePoint: ${fileName}`,
+          metadata: {
+            driveId: sharepointDriveId,
+            itemId: item.id,
+            size: item.size,
+          },
+        });
+      } catch {
+        // Activity logging is best-effort
+      }
     }
 
     return item;

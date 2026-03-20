@@ -60,16 +60,15 @@ export class GraphClient {
       });
     };
 
-    if (!options.silent) {
+    if (!options.silent && this.companyId) {
       try {
         await this.ctx.activity.log({
-          companyId: this.companyId ?? "",
+          companyId: this.companyId,
           message: `Graph API ${method} ${path}`,
           metadata: { service: this.serviceName, method, path },
         });
       } catch {
-        // Activity logging is best-effort — skip if companyId is unavailable
-        // (e.g., during Setup Wizard before config is saved)
+        // Activity logging is best-effort
       }
     }
 
