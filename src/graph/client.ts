@@ -111,7 +111,10 @@ export class GraphClient {
       return undefined as T;
     }
 
-    return (await response.json()) as T;
+    // Some Graph endpoints (e.g., sendMail) return 202 with no body
+    const text = await response.text();
+    if (!text) return undefined as T;
+    return JSON.parse(text) as T;
   }
 
   async get<T>(path: string, options?: GraphRequestOptions): Promise<T> {

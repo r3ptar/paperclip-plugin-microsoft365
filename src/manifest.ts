@@ -74,6 +74,7 @@ const manifest: PaperclipPluginManifestV1 = {
       },
       clientSecretRef: {
         type: "string",
+        format: "secret-ref",
         title: "Client Secret Reference",
         description: "Secret reference for the Azure AD client secret",
       },
@@ -142,6 +143,7 @@ const manifest: PaperclipPluginManifestV1 = {
       },
       webhookClientStateRef: {
         type: "string",
+        format: "secret-ref",
         title: "Webhook Client State Secret",
         description: "Secret reference for Graph webhook clientState verification",
       },

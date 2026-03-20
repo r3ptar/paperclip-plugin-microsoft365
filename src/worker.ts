@@ -732,6 +732,50 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
       };
     }
   });
+
+  // ── Action wrappers for tool testing (bridge-accessible) ─────────────────
+
+  ctx.actions.register("tool:sharepoint-upload", async (params) => {
+    if (!sharepointService) return { error: "SharePoint integration is not enabled" };
+    const { fileName, content, contentType } = (params ?? {}) as Record<string, string>;
+    if (!fileName || !content) return { error: "fileName and content are required" };
+    try {
+      const result = await sharepointService.uploadFile(fileName, content, contentType);
+      return { ok: true, result };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ctx.actions.register("tool:sharepoint-search", async (params) => {
+    if (!sharepointService) return { error: "SharePoint integration is not enabled" };
+    const { query, maxResults } = (params ?? {}) as { query?: string; maxResults?: number };
+    if (!query) return { error: "query is required" };
+    try {
+      const results = await sharepointService.search(query, maxResults ?? 10);
+      return { ok: true, results };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ctx.actions.register("tool:outlook-send-task-email", async (params) => {
+    if (!outlookService) return { error: "Outlook integration is not enabled" };
+    const { issueId, recipientEmail, emailType, customMessage } = (params ?? {}) as Record<string, string>;
+    if (!issueId || !recipientEmail) return { error: "issueId and recipientEmail are required" };
+    try {
+      const issue = { id: issueId, title: `Test Issue ${issueId}`, status: "in_progress" };
+      await outlookService.sendTaskEmail(
+        issue,
+        recipientEmail,
+        (emailType as "assignment" | "status_change" | "blocked" | "request" | "custom") ?? "custom",
+        customMessage,
+      );
+      return { ok: true, message: `Email sent to ${recipientEmail}` };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
 }
 
 // ── Tool Handlers ───────────────────────────────────────────────────────────

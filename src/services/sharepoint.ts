@@ -40,6 +40,7 @@ export class SharePointService {
             from: 0,
             size: maxResults,
             fields: ["id", "name", "size", "webUrl", "lastModifiedDateTime"],
+            region: "NAM",
           },
         ],
       },
@@ -72,13 +73,17 @@ export class SharePointService {
       );
     }
 
-    await this.ctx.activity.log({
-      companyId: "",
-      entityType: "document",
-      entityId: itemId,
-      message: `Reading SharePoint document: ${item.name}`,
-      metadata: { driveId, itemId, size: item.size },
-    });
+    try {
+      await this.ctx.activity.log({
+        companyId: "",
+        entityType: "document",
+        entityId: itemId,
+        message: `Reading SharePoint document: ${item.name}`,
+        metadata: { driveId, itemId, size: item.size },
+      });
+    } catch {
+      // Activity logging is best-effort
+    }
 
     // Download content as raw text (not JSON)
     const content = await this.graph.requestRaw(
@@ -98,8 +103,13 @@ export class SharePointService {
   ): Promise<DriveItem> {
     const { sharepointDriveId, sharepointUploadFolderId } = this.config;
 
+    // Build upload path — use folder if configured, otherwise upload to root
+    const uploadPath = sharepointUploadFolderId
+      ? `/drives/${sharepointDriveId}/items/${sharepointUploadFolderId}:/${encodeURIComponent(fileName)}:/content`
+      : `/drives/${sharepointDriveId}/root:/${encodeURIComponent(fileName)}:/content`;
+
     const item = await this.graph.request<DriveItem>(
-      `/drives/${sharepointDriveId}/items/${sharepointUploadFolderId}:/${encodeURIComponent(fileName)}:/content`,
+      uploadPath,
       {
         method: "PUT",
         headers: { "Content-Type": contentType },
@@ -107,17 +117,21 @@ export class SharePointService {
       },
     );
 
-    await this.ctx.activity.log({
-      companyId: "",
-      entityType: "document",
-      entityId: item.id,
-      message: `Uploaded document to SharePoint: ${fileName}`,
-      metadata: {
-        driveId: sharepointDriveId,
-        itemId: item.id,
-        size: item.size,
-      },
-    });
+    try {
+      await this.ctx.activity.log({
+        companyId: "",
+        entityType: "document",
+        entityId: item.id,
+        message: `Uploaded document to SharePoint: ${fileName}`,
+        metadata: {
+          driveId: sharepointDriveId,
+          itemId: item.id,
+          size: item.size,
+        },
+      });
+    } catch {
+      // Activity logging is best-effort
+    }
 
     return item;
   }
