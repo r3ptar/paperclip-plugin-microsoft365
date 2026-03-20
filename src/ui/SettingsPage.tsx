@@ -720,7 +720,7 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
               min={5}
               max={480}
               value={form.meetingDefaultDuration}
-              onChange={(e) => updateField("meetingDefaultDuration", parseInt(e.target.value, 10) || 30)}
+              onChange={(e) => updateField("meetingDefaultDuration", Math.max(5, Math.min(480, parseInt(e.target.value, 10) || 30)))}
             />
           </div>
         </div>

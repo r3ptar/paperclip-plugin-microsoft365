@@ -546,6 +546,23 @@ export function SetupWizard(props: SetupWizardProps) {
               enabled={state.enableMeetings}
               onToggle={(v) => update("enableMeetings", v)}
             />
+
+            <div style={{ ...card, marginTop: "8px" }}>
+              <div style={label}>Default Service User</div>
+              <div style={fieldRow}>
+                <span style={fieldLabel}>Default Service User ID</span>
+                <input
+                  type="text"
+                  style={textInput}
+                  placeholder="service-account@yourtenant.com"
+                  value={state.defaultServiceUserId}
+                  onChange={(e) => update("defaultServiceUserId", e.target.value)}
+                />
+                <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+                  Fallback M365 identity for unmapped agents and background jobs. Recommended when any service is enabled.
+                </span>
+              </div>
+            </div>
           </div>
         );
 
@@ -742,8 +759,11 @@ export function SetupWizard(props: SetupWizardProps) {
               params={{ teamId: state.teamsTeamId }}
               value={state.teamsDefaultChannelId}
               onChange={(id, name) => {
-                update("teamsDefaultChannelId", id);
-                update("teamsDefaultChannelName", name);
+                setState((prev) => ({
+                  ...prev,
+                  teamsDefaultChannelId: id,
+                  teamsDefaultChannelName: name,
+                }));
               }}
               disabled={!state.teamsTeamId}
               companyId={companyId}
@@ -778,21 +798,8 @@ export function SetupWizard(props: SetupWizardProps) {
                 min={5}
                 max={480}
                 value={state.meetingDefaultDuration}
-                onChange={(e) => update("meetingDefaultDuration", parseInt(e.target.value, 10) || 30)}
+                onChange={(e) => update("meetingDefaultDuration", Math.max(5, Math.min(480, parseInt(e.target.value, 10) || 30)))}
               />
-            </div>
-            <div style={fieldRow}>
-              <span style={fieldLabel}>Default Service User ID</span>
-              <input
-                type="text"
-                style={textInput}
-                placeholder="service-account@yourtenant.com (fallback for background jobs)"
-                value={state.defaultServiceUserId}
-                onChange={(e) => update("defaultServiceUserId", e.target.value)}
-              />
-              <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                Fallback identity for unmapped agents and automated operations.
-              </span>
             </div>
           </>
         );
