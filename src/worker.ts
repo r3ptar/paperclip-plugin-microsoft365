@@ -92,7 +92,7 @@ async function getConfig(ctx: PluginContext): Promise<M365Config> {
   return { ...DEFAULT_CONFIG, ...(raw as Partial<M365Config>), ...(stateConfig ?? {}) };
 }
 
-function initServices(ctx: PluginContext, config: M365Config): void {
+function initServices(ctx: PluginContext, config: M365Config, rawSecret?: string): void {
   // Reset all service references to prevent stale instances after config change
   tokenManager = null;
   configClient = null;
@@ -115,7 +115,7 @@ function initServices(ctx: PluginContext, config: M365Config): void {
     return;
   }
 
-  tokenManager = new TokenManager(ctx, config.tenantId, config.clientId, config.clientSecretRef);
+  tokenManager = new TokenManager(ctx, config.tenantId, config.clientId, config.clientSecretRef, rawSecret);
   configClient = new GraphClient(ctx, tokenManager, "config");
 
   // Always initialize identity service when credentials are available
@@ -847,10 +847,13 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
   });
 
   ctx.actions.register("save-config", async (params) => {
-    const incoming = params as Partial<M365Config>;
+    const incoming = params as Partial<M365Config> & { clientSecret?: string; companyId?: string };
+
+    // Extract fields that should not be persisted
+    const { clientSecret: rawSecret, companyId: _companyId, ...configFields } = incoming;
 
     // Merge with defaults for fields not provided
-    const merged = { ...DEFAULT_CONFIG, ...incoming };
+    const merged = { ...DEFAULT_CONFIG, ...configFields };
 
     // Validate
     const validation = validateConfig(merged);
@@ -858,13 +861,28 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
       return { ok: false, errors: validation.errors, warnings: validation.warnings };
     }
 
+    // Validate secret resolution if a ref is provided
+    if (merged.clientSecretRef) {
+      try {
+        await ctx.secrets.resolve(merged.clientSecretRef);
+      } catch {
+        if (!rawSecret) {
+          validation.warnings.push(
+            "Could not resolve the stored client secret. You may need to re-enter your client secret.",
+          );
+        }
+      }
+    }
+
     // Persist config
     // NOTE: ctx.config.set() does not exist on PluginConfigClient — fall back
     // to ctx.state.set() with instance-scoped "plugin-config" key.
     await ctx.state.set({ scopeKind: "instance", stateKey: "plugin-config" }, merged);
 
-    // Reinitialize services with new config
-    initServices(ctx, merged);
+    // Reinitialize services with new config.
+    // Pass raw secret as fallback so services work immediately even if
+    // ctx.secrets.resolve() has issues (e.g., platform scope mismatch).
+    initServices(ctx, merged, rawSecret);
 
     return { ok: true, warnings: validation.warnings };
   });
@@ -1422,9 +1440,11 @@ const plugin: PaperclipPlugin = definePlugin({
     };
   },
 
-  async onConfigChanged(newConfig) {
+  async onConfigChanged() {
     if (!pluginCtx) return;
-    const config = { ...DEFAULT_CONFIG, ...(newConfig as Partial<M365Config>) };
+    // Read from both host config and state to preserve state-stored fields
+    // like clientSecretRef that are not in the host config
+    const config = await getConfig(pluginCtx);
     initServices(pluginCtx, config);
     pluginCtx.logger.info("M365 config updated — services reinitialized");
   },

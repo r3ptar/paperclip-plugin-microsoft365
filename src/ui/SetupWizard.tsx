@@ -338,6 +338,7 @@ export function SetupWizard(props: SetupWizardProps) {
         tenantId: state.tenantId,
         clientId: state.clientId,
         clientSecretRef: state.clientSecretRef,
+        clientSecret: state.clientSecret,
         enablePlanner: state.enablePlanner,
         enableSharePoint: state.enableSharePoint,
         enableOutlook: state.enableOutlook,
@@ -1110,13 +1111,19 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
         setSecretStatus("Secret stored securely");
       }
 
-      const res = (await testConnectionAction({
+      // If we just stored the secret, test using the ref only (validates
+      // ctx.secrets.resolve). Otherwise pass the raw secret for first-time test.
+      const testPayload: Record<string, unknown> = {
         companyId,
         tenantId,
         clientId,
         clientSecretRef: resolvedRef,
-        clientSecret: clientSecret.trim() || undefined,
-      })) as {
+      };
+      if (!resolvedRef || resolvedRef === clientSecretRef) {
+        // No new secret was stored — pass raw secret for the test
+        testPayload.clientSecret = clientSecret.trim() || undefined;
+      }
+      const res = (await testConnectionAction(testPayload)) as {
         ok: boolean;
         error?: string | null;
       };

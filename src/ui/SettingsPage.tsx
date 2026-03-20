@@ -215,7 +215,8 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
       const payload = {
         ...form,
         clientSecretRef: resolvedSecretRef,
-        clientSecret: undefined,
+        // Pass raw secret so initServices can use it as a fallback
+        clientSecret: form.clientSecret.trim() || undefined,
         digestRecipients: form.digestRecipients
           .split(",")
           .map((s) => s.trim())
