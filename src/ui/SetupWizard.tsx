@@ -1041,21 +1041,22 @@ async function storeSecret(
     });
 
     if (res.status === 409) {
-      // Secret name already exists — delete and recreate to get a fresh ref
-      await fetch(`/api/companies/${companyId}/secrets/${encodeURIComponent(secretName)}`, {
-        method: "DELETE",
-      });
-      const retry = await fetch(`/api/companies/${companyId}/secrets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: secretName, value }),
-      });
-      if (!retry.ok) {
-        const text = await retry.text();
-        throw new Error(`Failed to store secret: ${text}`);
+      // Secret name already exists — find it and rotate its value
+      const listRes = await fetch(`/api/companies/${companyId}/secrets`);
+      if (listRes.ok) {
+        const secrets = (await listRes.json()) as Array<{ id: string; name: string }>;
+        const existing = secrets.find((s) => s.name === secretName);
+        if (existing) {
+          await fetch(`/api/companies/${companyId}/secrets/${existing.id}/rotate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ value }),
+          });
+          return existing.id;
+        }
       }
-      const retryData = (await retry.json()) as { id: string };
-      return retryData.id;
+      // Fallback: return conflict error
+      throw new Error("Secret already exists and could not be updated");
     }
 
     if (!res.ok) {
