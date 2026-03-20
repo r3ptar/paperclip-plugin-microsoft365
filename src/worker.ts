@@ -861,17 +861,6 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
       return { ok: false, errors: validation.errors, warnings: validation.warnings };
     }
 
-    // Validate secret resolution if a ref is provided and no raw fallback
-    if (merged.clientSecretRef && !rawSecret) {
-      try {
-        await ctx.secrets.resolve(merged.clientSecretRef);
-      } catch {
-        validation.warnings.push(
-          "Could not resolve the stored client secret. You may need to re-enter your client secret.",
-        );
-      }
-    }
-
     // Persist config
     // NOTE: ctx.config.set() does not exist on PluginConfigClient — fall back
     // to ctx.state.set() with instance-scoped "plugin-config" key.
