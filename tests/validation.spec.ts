@@ -245,16 +245,16 @@ describe("validateConfig", () => {
 
   // ── Teams validation ──────────────────────────────────────────────────────
 
-  it("requires teamsTeamId when Teams is enabled", () => {
+  it("warns when teamsTeamId is missing and Teams is enabled", () => {
     const result = validateConfig(validConfig({ enableTeams: true, teamsTeamId: "", teamsDefaultChannelId: "ch-1" }));
-    expect(result.ok).toBe(false);
-    expect(result.errors).toContain("Teams Team ID is required when Teams is enabled");
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toContain("Teams Team ID is required when Teams is enabled");
   });
 
-  it("requires teamsDefaultChannelId when Teams is enabled", () => {
+  it("warns when teamsDefaultChannelId is missing and Teams is enabled", () => {
     const result = validateConfig(validConfig({ enableTeams: true, teamsTeamId: "team-1", teamsDefaultChannelId: "" }));
-    expect(result.ok).toBe(false);
-    expect(result.errors).toContain("Teams Default Channel ID is required when Teams is enabled");
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toContain("Teams Default Channel ID is required when Teams is enabled");
   });
 
   it("does not require Teams fields when Teams is disabled", () => {
@@ -281,10 +281,10 @@ describe("validateConfig", () => {
 
   // ── Meetings validation ───────────────────────────────────────────────────
 
-  it("requires meetingOrganizerUserId when Meetings is enabled", () => {
+  it("warns when meetingOrganizerUserId is missing and Meetings is enabled", () => {
     const result = validateConfig(validConfig({ enableMeetings: true, meetingOrganizerUserId: "" }));
-    expect(result.ok).toBe(false);
-    expect(result.errors).toContain("Meeting Organizer User ID is required when Meetings is enabled");
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toContain("Meeting Organizer User ID is required when Meetings is enabled");
   });
 
   it("rejects non-positive meetingDefaultDuration", () => {

@@ -59,18 +59,18 @@ export function validateConfig(config: Partial<M365Config>): ValidationResult {
     warnings.push("No default service user ID configured — agent identity resolution will have no fallback");
   }
 
-  // Teams
+  // Teams — warn instead of error so config can be saved incrementally
   if (config.enableTeams) {
-    if (!config.teamsTeamId) errors.push("Teams Team ID is required when Teams is enabled");
-    if (!config.teamsDefaultChannelId) errors.push("Teams Default Channel ID is required when Teams is enabled");
+    if (!config.teamsTeamId) warnings.push("Teams Team ID is required when Teams is enabled");
+    if (!config.teamsDefaultChannelId) warnings.push("Teams Default Channel ID is required when Teams is enabled");
   }
 
   // People — just needs Azure AD credentials (gated below)
 
-  // Meetings
+  // Meetings — warn instead of error so config can be saved incrementally
   if (config.enableMeetings) {
     if (!config.meetingOrganizerUserId) {
-      errors.push("Meeting Organizer User ID is required when Meetings is enabled");
+      warnings.push("Meeting Organizer User ID is required when Meetings is enabled");
     }
     if (config.meetingDefaultDuration !== undefined && config.meetingDefaultDuration <= 0) {
       errors.push("Meeting default duration must be a positive number");
