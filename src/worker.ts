@@ -38,9 +38,7 @@ import { handleSharePointRead } from "./tools/sharepoint-read.js";
 import { handleSharePointUpload } from "./tools/sharepoint-upload.js";
 import { handlePlannerStatus } from "./tools/planner-status.js";
 import { handleOutlookSendTaskEmail } from "./tools/outlook-send-task-email.js";
-import { handleTeamsPostMessage } from "./tools/teams-post-message.js";
 import { handleTeamsReadChannel } from "./tools/teams-read-channel.js";
-import { handleTeamsReplyThread } from "./tools/teams-reply-thread.js";
 import { handleTeamsListChannels } from "./tools/teams-list-channels.js";
 import { handlePeopleLookup } from "./tools/people-lookup.js";
 import { handlePeopleGetPresence } from "./tools/people-get-presence.js";
@@ -194,18 +192,6 @@ async function registerEventHandlers(ctx: PluginContext): Promise<void> {
       }
     }
 
-    // Post to Teams channel
-    if (config.enableTeams && teamsService && config.teamsDefaultChannelId) {
-      try {
-        await teamsService.postIssueUpdate(config.teamsDefaultChannelId, issue, "created");
-        await ctx.metrics.write("m365.teams.issue_notification", 1);
-      } catch (err) {
-        ctx.logger.error("Failed to post issue creation to Teams", {
-          issueId: issue.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
   });
 
   ctx.events.on("issue.updated", async (event: PluginEvent) => {
@@ -296,19 +282,6 @@ async function registerEventHandlers(ctx: PluginContext): Promise<void> {
             error: err instanceof Error ? err.message : String(err),
           });
         }
-      }
-    }
-
-    // Post update to Teams channel
-    if (config.enableTeams && teamsService && config.teamsDefaultChannelId) {
-      try {
-        await teamsService.postIssueUpdate(config.teamsDefaultChannelId, issue, "updated");
-        await ctx.metrics.write("m365.teams.issue_notification", 1);
-      } catch (err) {
-        ctx.logger.error("Failed to post issue update to Teams", {
-          issueId: issue.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
       }
     }
 
@@ -1117,30 +1090,7 @@ async function registerToolHandlers(ctx: PluginContext): Promise<void> {
     },
   );
 
-  // ── Teams tools ──────────────────────────────────────────────────────────
-
-  ctx.tools.register(
-    TOOL_NAMES.teamsPostMessage,
-    {
-      displayName: "Teams Post Message",
-      description: "Post a message to a Teams channel.",
-      parametersSchema: {
-        type: "object",
-        properties: {
-          channelId: { type: "string" },
-          content: { type: "string" },
-          subject: { type: "string" },
-        },
-        required: ["content"],
-      },
-    },
-    async (params, runCtx): Promise<ToolResult> => {
-      if (!teamsService || !identityService) {
-        return { error: "Teams integration is not enabled" };
-      }
-      return handleTeamsPostMessage(params, runCtx, teamsService, identityService);
-    },
-  );
+  // ── Teams tools (read-only — posting requires delegated auth) ────────────
 
   ctx.tools.register(
     TOOL_NAMES.teamsReadChannel,
@@ -1161,29 +1111,6 @@ async function registerToolHandlers(ctx: PluginContext): Promise<void> {
         return { error: "Teams integration is not enabled" };
       }
       return handleTeamsReadChannel(params, runCtx, teamsService);
-    },
-  );
-
-  ctx.tools.register(
-    TOOL_NAMES.teamsReplyThread,
-    {
-      displayName: "Teams Reply to Thread",
-      description: "Reply to a specific message thread in a Teams channel.",
-      parametersSchema: {
-        type: "object",
-        properties: {
-          channelId: { type: "string" },
-          messageId: { type: "string" },
-          content: { type: "string" },
-        },
-        required: ["channelId", "messageId", "content"],
-      },
-    },
-    async (params, runCtx): Promise<ToolResult> => {
-      if (!teamsService || !identityService) {
-        return { error: "Teams integration is not enabled" };
-      }
-      return handleTeamsReplyThread(params, runCtx, teamsService, identityService);
     },
   );
 

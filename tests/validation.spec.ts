@@ -251,12 +251,6 @@ describe("validateConfig", () => {
     expect(result.warnings).toContain("Teams Team ID is required when Teams is enabled");
   });
 
-  it("warns when teamsDefaultChannelId is missing and Teams is enabled", () => {
-    const result = validateConfig(validConfig({ enableTeams: true, teamsTeamId: "team-1", teamsDefaultChannelId: "" }));
-    expect(result.ok).toBe(true);
-    expect(result.warnings).toContain("Teams Default Channel ID is required when Teams is enabled");
-  });
-
   it("does not require Teams fields when Teams is disabled", () => {
     const result = validateConfig(validConfig({
       enableTeams: false,

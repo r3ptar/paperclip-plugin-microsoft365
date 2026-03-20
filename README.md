@@ -94,8 +94,7 @@ Grant only the permissions for services you plan to enable. All permissions requ
 | Outlook | `Mail.Send` | Application |
 | Teams | `Team.ReadBasic.All` | Application |
 | Teams | `Channel.ReadBasic.All` | Application |
-| Teams | `ChannelMessage.Read.All` | Application |
-| Teams | `Teamwork.Migrate.All` | Application (enables app-only channel posting; or use RSC per-team) |
+| Teams | `ChannelMessage.Read.All` | Application (read-only — posting requires delegated auth) |
 | People/Presence | `User.Read.All` | Application |
 | People/Presence | `Presence.Read.All` | Application |
 | Meetings | `Calendars.ReadWrite` | Application (shared with Outlook) |

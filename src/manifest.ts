@@ -324,48 +324,7 @@ const manifest: PaperclipPluginManifestV1 = {
         required: ["issueId", "recipientEmail"],
       },
     },
-    // ── Teams tools ──────────────────────────────────────────────────────────
-    {
-      name: TOOL_NAMES.teamsPostMessage,
-      displayName: "Teams Post Message",
-      description: "Post a message to a Teams channel. The message is sent as the agent's M365 identity.",
-      parametersSchema: {
-        type: "object",
-        properties: {
-          channelId: { type: "string", description: "Channel ID (defaults to configured default channel)" },
-          content: { type: "string", description: "HTML message content" },
-          subject: { type: "string", description: "Optional message subject" },
-        },
-        required: ["content"],
-      },
-    },
-    {
-      name: TOOL_NAMES.teamsReadChannel,
-      displayName: "Teams Read Channel",
-      description: "Read recent messages from a Teams channel.",
-      parametersSchema: {
-        type: "object",
-        properties: {
-          channelId: { type: "string", description: "The channel ID to read from" },
-          maxMessages: { type: "number", description: "Maximum number of messages to return (default: 20)" },
-        },
-        required: ["channelId"],
-      },
-    },
-    {
-      name: TOOL_NAMES.teamsReplyThread,
-      displayName: "Teams Reply to Thread",
-      description: "Reply to a specific message thread in a Teams channel.",
-      parametersSchema: {
-        type: "object",
-        properties: {
-          channelId: { type: "string", description: "The channel ID" },
-          messageId: { type: "string", description: "The parent message ID to reply to" },
-          content: { type: "string", description: "HTML reply content" },
-        },
-        required: ["channelId", "messageId", "content"],
-      },
-    },
+    // ── Teams tools (read-only — posting requires delegated auth) ───────────
     {
       name: TOOL_NAMES.teamsListChannels,
       displayName: "Teams List Channels",

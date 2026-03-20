@@ -59,10 +59,9 @@ export function validateConfig(config: Partial<M365Config>): ValidationResult {
     warnings.push("No default service user ID configured — agent identity resolution will have no fallback");
   }
 
-  // Teams — warn instead of error so config can be saved incrementally
+  // Teams — read-only (posting requires delegated auth)
   if (config.enableTeams) {
     if (!config.teamsTeamId) warnings.push("Teams Team ID is required when Teams is enabled");
-    if (!config.teamsDefaultChannelId) warnings.push("Teams Default Channel ID is required when Teams is enabled");
   }
 
   // People — just needs Azure AD credentials (gated below)
