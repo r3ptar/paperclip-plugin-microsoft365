@@ -36,7 +36,7 @@ export async function handleOutlookSendTaskEmail(
     emailType && VALID_EMAIL_TYPES.has(emailType) ? emailType : "custom";
 
   // Fetch the issue to get title and status for the email template
-  const issue = await ctx.issues.get(issueId, "");
+  const issue = await ctx.issues.get(issueId, runCtx.companyId);
   if (!issue) {
     return { error: `Issue ${issueId} not found` };
   }
