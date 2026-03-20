@@ -92,18 +92,29 @@ async function storeSecret(
     });
 
     if (res.status === 409) {
-      // Secret with this name already exists — reuse it.
-      // ctx.secrets.resolve() looks up by name, so returning the
-      // existing name is correct even if the value is unchanged.
-      return secretName;
+      // Secret name already exists — delete and recreate to get a fresh ref
+      await fetch(`/api/companies/${companyId}/secrets/${encodeURIComponent(secretName)}`, {
+        method: "DELETE",
+      });
+      const retry = await fetch(`/api/companies/${companyId}/secrets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: secretName, value }),
+      });
+      if (!retry.ok) {
+        const text = await retry.text();
+        throw new Error(`Failed to store secret: ${text}`);
+      }
+      const retryData = (await retry.json()) as { id: string };
+      return retryData.id;
     }
 
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Failed to store secret: ${text}`);
     }
-    // Return the secret name — ctx.secrets.resolve() expects the name, not the UUID
-    return secretName;
+    const data = (await res.json()) as { id: string };
+    return data.id;
   };
 
   return create(name);
