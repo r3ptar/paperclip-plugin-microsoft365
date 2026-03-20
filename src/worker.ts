@@ -608,13 +608,18 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
    * as data handler params before config is saved).
    */
   function getWizardClient(params: Record<string, unknown>): GraphClient | null {
-    if (configClient) return configClient;
+    // Prefer wizard-provided credentials (raw secret) when available, since
+    // configClient relies on a stored secret ref that may have been deleted.
     const tenantId = typeof params.tenantId === "string" ? params.tenantId : "";
     const clientId = typeof params.clientId === "string" ? params.clientId : "";
     const clientSecret = typeof params.clientSecret === "string" ? params.clientSecret : "";
-    if (!tenantId || !clientId || !clientSecret) return null;
-    const tm = new TokenManager(ctx, tenantId, clientId, "", clientSecret);
-    return new GraphClient(ctx, tm, "wizard");
+    if (tenantId && clientId && clientSecret) {
+      const tm = new TokenManager(ctx, tenantId, clientId, "", clientSecret);
+      return new GraphClient(ctx, tm, "wizard");
+    }
+    // Fall back to module-level client (uses stored secret ref)
+    if (configClient) return configClient;
+    return null;
   }
 
   ctx.data.register("m365-groups", async (params) => {
