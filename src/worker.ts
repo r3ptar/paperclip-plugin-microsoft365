@@ -110,7 +110,7 @@ function initServices(ctx: PluginContext, config: M365Config, rawSecret?: string
   peopleService = null;
   meetingService = null;
 
-  if (!config.tenantId || !config.clientId || !config.clientSecretRef) {
+  if (!config.tenantId || !config.clientId) {
     ctx.logger.warn("M365 plugin: Azure AD credentials not configured");
     return;
   }
@@ -821,10 +821,18 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
 
     let tm: TokenManager | null;
 
-    if (tenantId && clientId && (clientSecret || clientSecretRef)) {
-      // Use provided credentials (e.g. from Setup Wizard before config is saved)
-      // Pass raw secret directly to avoid ctx.secrets.resolve() scope issues
-      tm = new TokenManager(ctx, tenantId, clientId, clientSecretRef ?? "", clientSecret);
+    // Resolve the secret: prefer raw secret, then stored secret from state
+    let resolvedSecret = clientSecret;
+    if (!resolvedSecret) {
+      const stored = await ctx.state.get({
+        scopeKind: "instance",
+        stateKey: "client-secret-value",
+      }) as string | null;
+      if (stored) resolvedSecret = stored;
+    }
+
+    if (tenantId && clientId && (resolvedSecret || clientSecretRef)) {
+      tm = new TokenManager(ctx, tenantId, clientId, clientSecretRef ?? "", resolvedSecret);
     } else {
       // Fall back to module-level instance (post-setup)
       tm = tokenManager;
@@ -866,9 +874,17 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
     // to ctx.state.set() with instance-scoped "plugin-config" key.
     await ctx.state.set({ scopeKind: "instance", stateKey: "plugin-config" }, merged);
 
+    // Persist the raw secret separately so it survives plugin restarts.
+    // ctx.secrets.resolve() cannot resolve UUIDs returned by the secrets API,
+    // so we store the value directly in instance state as a workaround.
+    if (rawSecret) {
+      await ctx.state.set(
+        { scopeKind: "instance", stateKey: "client-secret-value" },
+        rawSecret,
+      );
+    }
+
     // Reinitialize services with new config.
-    // Pass raw secret as fallback so services work immediately even if
-    // ctx.secrets.resolve() has issues (e.g., platform scope mismatch).
     initServices(ctx, merged, rawSecret);
 
     return { ok: true, warnings: validation.warnings };
@@ -1376,7 +1392,15 @@ const plugin: PaperclipPlugin = definePlugin({
   async setup(ctx) {
     pluginCtx = ctx;
     const config = await getConfig(ctx);
-    initServices(ctx, config);
+
+    // Read stored raw secret — workaround for ctx.secrets.resolve() not
+    // being able to resolve UUIDs returned by the platform secrets API.
+    const storedSecret = await ctx.state.get({
+      scopeKind: "instance",
+      stateKey: "client-secret-value",
+    }) as string | null;
+
+    initServices(ctx, config, storedSecret ?? undefined);
 
     await registerEventHandlers(ctx);
     await registerJobs(ctx);

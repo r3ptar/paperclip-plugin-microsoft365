@@ -1111,19 +1111,13 @@ function ConnectionStatusWrapper(props: ConnectionStatusWrapperProps) {
         setSecretStatus("Secret stored securely");
       }
 
-      // If we just stored the secret, test using the ref only (validates
-      // ctx.secrets.resolve). Otherwise pass the raw secret for first-time test.
-      const testPayload: Record<string, unknown> = {
+      const res = (await testConnectionAction({
         companyId,
         tenantId,
         clientId,
         clientSecretRef: resolvedRef,
-      };
-      if (!resolvedRef || resolvedRef === clientSecretRef) {
-        // No new secret was stored — pass raw secret for the test
-        testPayload.clientSecret = clientSecret.trim() || undefined;
-      }
-      const res = (await testConnectionAction(testPayload)) as {
+        clientSecret: clientSecret.trim() || undefined,
+      })) as {
         ok: boolean;
         error?: string | null;
       };
