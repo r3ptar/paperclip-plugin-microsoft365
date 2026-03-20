@@ -525,6 +525,22 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
     };
   });
 
+  ctx.data.register("paperclip-agents", async (params) => {
+    const companyId = typeof params.companyId === "string" ? params.companyId : "";
+    if (!companyId) return { items: [] };
+    try {
+      const agents = await ctx.agents.list({ companyId, limit: 100, offset: 0 });
+      return {
+        items: agents.map((a) => ({
+          id: a.id,
+          name: `${a.name}${a.title ? ` — ${a.title}` : ""} (${a.role})`,
+        })),
+      };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
   ctx.data.register("issue-m365", async (params) => {
     const issueId = typeof params.issueId === "string" ? params.issueId : "";
     if (!issueId) return { plannerTask: null, calendarEvent: null };

@@ -29,7 +29,7 @@ import type {
   TestConnectionResult,
 } from "./types.js";
 import { SetupWizard } from "./SetupWizard.js";
-import { KeyValueEditor, GraphDropdown } from "./components/index.js";
+import { AgentIdentityEditor, GraphDropdown } from "./components/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -505,11 +505,10 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
 
         <div style={fieldRow}>
           <span style={fieldLabel}>Agent Identity Map</span>
-          <KeyValueEditor
+          <AgentIdentityEditor
             entries={form.agentIdentityMap}
             onChange={(entries) => updateField("agentIdentityMap", entries)}
-            keyPlaceholder="Paperclip Agent ID"
-            valuePlaceholder="M365 User ID or UPN"
+            companyId={context.companyId}
           />
           <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
             Map each Paperclip agent to a dedicated M365 user account
