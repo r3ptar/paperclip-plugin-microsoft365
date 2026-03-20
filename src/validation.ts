@@ -42,7 +42,43 @@ export function validateConfig(config: Partial<M365Config>): ValidationResult {
     }
   }
 
-  if (config.enablePlanner || config.enableSharePoint || config.enableOutlook) {
+  // Agentic Identity
+  if (config.agentIdentityMap) {
+    for (const [agentId, userId] of Object.entries(config.agentIdentityMap)) {
+      if (!agentId || !userId) {
+        errors.push("Agent identity map entries must have non-empty agent ID and M365 user ID");
+        break;
+      }
+    }
+  }
+  if (
+    (config.enablePlanner || config.enableSharePoint || config.enableOutlook ||
+     config.enableTeams || config.enablePeople || config.enableMeetings) &&
+    !config.defaultServiceUserId
+  ) {
+    warnings.push("No default service user ID configured — agent identity resolution will have no fallback");
+  }
+
+  // Teams
+  if (config.enableTeams) {
+    if (!config.teamsTeamId) errors.push("Teams Team ID is required when Teams is enabled");
+    if (!config.teamsDefaultChannelId) errors.push("Teams Default Channel ID is required when Teams is enabled");
+  }
+
+  // People — just needs Azure AD credentials (gated below)
+
+  // Meetings
+  if (config.enableMeetings) {
+    if (!config.meetingOrganizerUserId) {
+      errors.push("Meeting Organizer User ID is required when Meetings is enabled");
+    }
+    if (config.meetingDefaultDuration !== undefined && config.meetingDefaultDuration <= 0) {
+      errors.push("Meeting default duration must be a positive number");
+    }
+  }
+
+  if (config.enablePlanner || config.enableSharePoint || config.enableOutlook ||
+      config.enableTeams || config.enablePeople || config.enableMeetings) {
     if (!config.tenantId) {
       errors.push("Azure AD Tenant ID is required");
     } else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.tenantId)) {

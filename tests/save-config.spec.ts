@@ -38,6 +38,7 @@ function fullValidConfig(overrides: Partial<M365Config> = {}): Partial<M365Confi
     outlookCalendarId: "calendar-1",
     digestRecipients: ["user-a@contoso.com"],
     digestSenderUserId: "user-1",
+    defaultServiceUserId: "service@contoso.com",
     webhookClientStateRef: "webhook-secret-ref",
     maxDocSizeBytes: 10 * 1024 * 1024,
     conflictStrategy: "last_write_wins",

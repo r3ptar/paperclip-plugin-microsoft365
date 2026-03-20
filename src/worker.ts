@@ -23,9 +23,13 @@ import {
 } from "./constants.js";
 import { TokenManager } from "./graph/auth.js";
 import { GraphClient } from "./graph/client.js";
+import { AgentIdentityService } from "./services/identity.js";
 import { PlannerService } from "./services/planner.js";
 import { SharePointService } from "./services/sharepoint.js";
 import { OutlookService } from "./services/outlook.js";
+import { TeamsService } from "./services/teams.js";
+import { PeopleService } from "./services/people.js";
+import { MeetingService } from "./services/meetings.js";
 import { reconcile } from "./sync/reconcile.js";
 import { handleGraphNotification } from "./webhooks/graph-notifications.js";
 import { handleMailNotification } from "./webhooks/mail-notifications.js";
@@ -34,7 +38,20 @@ import { handleSharePointRead } from "./tools/sharepoint-read.js";
 import { handleSharePointUpload } from "./tools/sharepoint-upload.js";
 import { handlePlannerStatus } from "./tools/planner-status.js";
 import { handleOutlookSendTaskEmail } from "./tools/outlook-send-task-email.js";
+import { handleTeamsPostMessage } from "./tools/teams-post-message.js";
+import { handleTeamsReadChannel } from "./tools/teams-read-channel.js";
+import { handleTeamsReplyThread } from "./tools/teams-reply-thread.js";
+import { handleTeamsListChannels } from "./tools/teams-list-channels.js";
+import { handlePeopleLookup } from "./tools/people-lookup.js";
+import { handlePeopleGetPresence } from "./tools/people-get-presence.js";
+import { handlePeopleGetManager } from "./tools/people-get-manager.js";
+import { handlePeopleListTeamMembers } from "./tools/people-list-team-members.js";
+import { handleMeetingSchedule } from "./tools/meeting-schedule.js";
+import { handleMeetingFindTime } from "./tools/meeting-find-time.js";
+import { handleMeetingCancel } from "./tools/meeting-cancel.js";
+import { handleMeetingList } from "./tools/meeting-list.js";
 import { validateConfig } from "./validation.js";
+import { isValidGraphId } from "./graph/validate-id.js";
 import type {
   GraphListResponse,
   GraphGroup,
@@ -43,18 +60,8 @@ import type {
   GraphCalendar,
   PlannerPlan,
   DriveItem,
+  TeamsChannel,
 } from "./graph/types.js";
-
-/**
- * Validates that an ID is safe for Graph API URL path interpolation.
- * Allows GUIDs, opaque Graph IDs (alphanumeric, dots, hyphens, colons),
- * and SharePoint site IDs (which contain commas, e.g. "contoso.sharepoint.com,guid,guid").
- * Rejects path traversal characters (/, \, ..) and whitespace.
- */
-const SAFE_GRAPH_ID_RE = /^[a-zA-Z0-9._:,@-]+$/;
-function isValidGraphId(id: string): boolean {
-  return SAFE_GRAPH_ID_RE.test(id) && !id.includes("..");
-}
 
 let pluginCtx: PluginContext | null = null;
 let tokenManager: TokenManager | null = null;
@@ -62,9 +69,16 @@ let configClient: GraphClient | null = null;
 let plannerClient: GraphClient | null = null;
 let sharepointClient: GraphClient | null = null;
 let outlookClient: GraphClient | null = null;
+let teamsClient: GraphClient | null = null;
+let peopleClient: GraphClient | null = null;
+let meetingClient: GraphClient | null = null;
+let identityService: AgentIdentityService | null = null;
 let plannerService: PlannerService | null = null;
 let sharepointService: SharePointService | null = null;
 let outlookService: OutlookService | null = null;
+let teamsService: TeamsService | null = null;
+let peopleService: PeopleService | null = null;
+let meetingService: MeetingService | null = null;
 
 async function getConfig(ctx: PluginContext): Promise<M365Config> {
   const raw = await ctx.config.get();
@@ -84,9 +98,16 @@ function initServices(ctx: PluginContext, config: M365Config): void {
   plannerClient = null;
   sharepointClient = null;
   outlookClient = null;
+  teamsClient = null;
+  peopleClient = null;
+  meetingClient = null;
+  identityService = null;
   plannerService = null;
   sharepointService = null;
   outlookService = null;
+  teamsService = null;
+  peopleService = null;
+  meetingService = null;
 
   if (!config.tenantId || !config.clientId || !config.clientSecretRef) {
     ctx.logger.warn("M365 plugin: Azure AD credentials not configured");
@@ -95,6 +116,9 @@ function initServices(ctx: PluginContext, config: M365Config): void {
 
   tokenManager = new TokenManager(ctx, config.tenantId, config.clientId, config.clientSecretRef);
   configClient = new GraphClient(ctx, tokenManager, "config");
+
+  // Always initialize identity service when credentials are available
+  identityService = new AgentIdentityService(config);
 
   if (config.enablePlanner) {
     plannerClient = new GraphClient(ctx, tokenManager, "planner");
@@ -109,6 +133,21 @@ function initServices(ctx: PluginContext, config: M365Config): void {
   if (config.enableOutlook) {
     outlookClient = new GraphClient(ctx, tokenManager, "outlook");
     outlookService = new OutlookService(ctx, outlookClient, config);
+  }
+
+  if (config.enableTeams) {
+    teamsClient = new GraphClient(ctx, tokenManager, "teams");
+    teamsService = new TeamsService(ctx, teamsClient, config);
+  }
+
+  if (config.enablePeople) {
+    peopleClient = new GraphClient(ctx, tokenManager, "people");
+    peopleService = new PeopleService(ctx, peopleClient);
+  }
+
+  if (config.enableMeetings) {
+    meetingClient = new GraphClient(ctx, tokenManager, "meetings");
+    meetingService = new MeetingService(ctx, meetingClient, config);
   }
 }
 
@@ -151,6 +190,19 @@ async function registerEventHandlers(ctx: PluginContext): Promise<void> {
             error: err instanceof Error ? err.message : String(err),
           });
         }
+      }
+    }
+
+    // Post to Teams channel
+    if (config.enableTeams && teamsService && config.teamsDefaultChannelId) {
+      try {
+        await teamsService.postIssueUpdate(config.teamsDefaultChannelId, issue, "created");
+        await ctx.metrics.write("m365.teams.issue_notification", 1);
+      } catch (err) {
+        ctx.logger.error("Failed to post issue creation to Teams", {
+          issueId: issue.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   });
@@ -239,6 +291,62 @@ async function registerEventHandlers(ctx: PluginContext): Promise<void> {
           await outlookService.createDeadlineEvent(issue, dueDate);
         } catch (err) {
           ctx.logger.error("Failed to create calendar event on update", {
+            issueId: issue.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+
+    // Post update to Teams channel
+    if (config.enableTeams && teamsService && config.teamsDefaultChannelId) {
+      try {
+        await teamsService.postIssueUpdate(config.teamsDefaultChannelId, issue, "updated");
+        await ctx.metrics.write("m365.teams.issue_notification", 1);
+      } catch (err) {
+        ctx.logger.error("Failed to post issue update to Teams", {
+          issueId: issue.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // Auto-schedule review meeting when issue moves to in_review
+    if (config.enableMeetings && meetingService && issue.status === "in_review") {
+      // Skip if no attendees configured or a meeting already exists for this issue
+      const existingMeetings = await ctx.entities.list({
+        entityType: ENTITY_TYPES.meetingEvent,
+        scopeKind: "issue",
+        scopeId: issue.id,
+        limit: 1,
+        offset: 0,
+      });
+
+      if (existingMeetings.length === 0 && config.digestRecipients.length > 0) {
+        try {
+          const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+          tomorrow.setUTCHours(10, 0, 0, 0);
+
+          const event = await meetingService.scheduleMeeting({
+            subject: `Review: ${issue.title}`,
+            attendeeEmails: config.digestRecipients,
+            startDateTime: tomorrow.toISOString(),
+            createTeamsLink: true,
+          });
+
+          await ctx.entities.upsert({
+            entityType: ENTITY_TYPES.meetingEvent,
+            scopeKind: "issue",
+            scopeId: issue.id,
+            externalId: event.id,
+            title: event.subject,
+            status: "active",
+            data: { eventId: event.id, autoScheduled: true },
+          });
+
+          await ctx.metrics.write("m365.meetings.auto_scheduled", 1);
+        } catch (err) {
+          ctx.logger.error("Failed to auto-schedule review meeting", {
             issueId: issue.id,
             error: err instanceof Error ? err.message : String(err),
           });
@@ -420,7 +528,7 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
     const issueId = typeof params.issueId === "string" ? params.issueId : "";
     if (!issueId) return { plannerTask: null, calendarEvent: null };
 
-    const [plannerEntities, calendarEntities] = await Promise.all([
+    const [plannerEntities, calendarEntities, meetingEntities] = await Promise.all([
       ctx.entities.list({
         entityType: ENTITY_TYPES.plannerTask,
         scopeKind: "issue",
@@ -435,11 +543,19 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
         limit: 1,
         offset: 0,
       }),
+      ctx.entities.list({
+        entityType: ENTITY_TYPES.meetingEvent,
+        scopeKind: "issue",
+        scopeId: issueId,
+        limit: 1,
+        offset: 0,
+      }),
     ]);
 
     return {
       plannerTask: plannerEntities[0] ?? null,
       calendarEvent: calendarEntities[0] ?? null,
+      meetingEvent: meetingEntities[0] ?? null,
     };
   });
 
@@ -586,6 +702,24 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
         items: res.value
           .filter((item) => item.folder !== undefined)
           .map((item) => ({ id: item.id, name: item.name })),
+      };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ctx.data.register("m365-teams-channels", async (params) => {
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
+    const teamId = typeof params.teamId === "string" ? params.teamId : "";
+    if (!teamId) return { error: "teamId is required" };
+    if (!isValidGraphId(teamId)) return { error: "Invalid teamId format" };
+    try {
+      const res = await client.get<GraphListResponse<TeamsChannel>>(
+        `/teams/${teamId}/channels?$select=id,displayName,description,membershipType`,
+      );
+      return {
+        items: res.value.map((c) => ({ id: c.id, name: c.displayName })),
       };
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };
@@ -896,6 +1030,274 @@ async function registerToolHandlers(ctx: PluginContext): Promise<void> {
       return handleOutlookSendTaskEmail(params, runCtx, ctx, outlookService);
     },
   );
+
+  // ── Teams tools ──────────────────────────────────────────────────────────
+
+  ctx.tools.register(
+    TOOL_NAMES.teamsPostMessage,
+    {
+      displayName: "Teams Post Message",
+      description: "Post a message to a Teams channel.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          channelId: { type: "string" },
+          content: { type: "string" },
+          subject: { type: "string" },
+        },
+        required: ["content"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!teamsService || !identityService) {
+        return { error: "Teams integration is not enabled" };
+      }
+      return handleTeamsPostMessage(params, runCtx, teamsService, identityService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.teamsReadChannel,
+    {
+      displayName: "Teams Read Channel",
+      description: "Read recent messages from a Teams channel.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          channelId: { type: "string" },
+          maxMessages: { type: "number" },
+        },
+        required: ["channelId"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!teamsService) {
+        return { error: "Teams integration is not enabled" };
+      }
+      return handleTeamsReadChannel(params, runCtx, teamsService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.teamsReplyThread,
+    {
+      displayName: "Teams Reply to Thread",
+      description: "Reply to a specific message thread in a Teams channel.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          channelId: { type: "string" },
+          messageId: { type: "string" },
+          content: { type: "string" },
+        },
+        required: ["channelId", "messageId", "content"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!teamsService || !identityService) {
+        return { error: "Teams integration is not enabled" };
+      }
+      return handleTeamsReplyThread(params, runCtx, teamsService, identityService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.teamsListChannels,
+    {
+      displayName: "Teams List Channels",
+      description: "List all channels in the configured Teams team.",
+      parametersSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!teamsService) {
+        return { error: "Teams integration is not enabled" };
+      }
+      return handleTeamsListChannels(params, runCtx, teamsService);
+    },
+  );
+
+  // ── People & Presence tools ──────────────────────────────────────────────
+
+  ctx.tools.register(
+    TOOL_NAMES.peopleLookup,
+    {
+      displayName: "People Lookup",
+      description: "Search for users in the M365 directory.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+        },
+        required: ["query"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!peopleService) {
+        return { error: "People integration is not enabled" };
+      }
+      return handlePeopleLookup(params, runCtx, peopleService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.peopleGetPresence,
+    {
+      displayName: "People Get Presence",
+      description: "Check a user's availability/presence.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          userId: { type: "string" },
+          userIds: { type: "array", items: { type: "string" } },
+        },
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!peopleService) {
+        return { error: "People integration is not enabled" };
+      }
+      return handlePeopleGetPresence(params, runCtx, peopleService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.peopleGetManager,
+    {
+      displayName: "People Get Manager",
+      description: "Get a user's manager in the org hierarchy.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          userId: { type: "string" },
+        },
+        required: ["userId"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!peopleService) {
+        return { error: "People integration is not enabled" };
+      }
+      return handlePeopleGetManager(params, runCtx, peopleService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.peopleListTeamMembers,
+    {
+      displayName: "People List Team Members",
+      description: "List all members of an M365 group/team.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          groupId: { type: "string" },
+        },
+        required: ["groupId"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!peopleService) {
+        return { error: "People integration is not enabled" };
+      }
+      return handlePeopleListTeamMembers(params, runCtx, peopleService);
+    },
+  );
+
+  // ── Meeting tools ────────────────────────────────────────────────────────
+
+  ctx.tools.register(
+    TOOL_NAMES.meetingSchedule,
+    {
+      displayName: "Schedule Meeting",
+      description: "Schedule a meeting with attendees.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          subject: { type: "string" },
+          attendeeEmails: { type: "array", items: { type: "string" } },
+          startDateTime: { type: "string" },
+          endDateTime: { type: "string" },
+          body: { type: "string" },
+          createTeamsLink: { type: "boolean" },
+        },
+        required: ["subject", "attendeeEmails", "startDateTime"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!meetingService || !identityService) {
+        return { error: "Meetings integration is not enabled" };
+      }
+      return handleMeetingSchedule(params, runCtx, meetingService, identityService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.meetingFindTime,
+    {
+      displayName: "Find Meeting Time",
+      description: "Find available time slots for a meeting.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          attendeeEmails: { type: "array", items: { type: "string" } },
+          durationMinutes: { type: "number" },
+          startRange: { type: "string" },
+          endRange: { type: "string" },
+        },
+        required: ["attendeeEmails"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!meetingService) {
+        return { error: "Meetings integration is not enabled" };
+      }
+      return handleMeetingFindTime(params, runCtx, meetingService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.meetingCancel,
+    {
+      displayName: "Cancel Meeting",
+      description: "Cancel a scheduled meeting.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          eventId: { type: "string" },
+        },
+        required: ["eventId"],
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!meetingService || !identityService) {
+        return { error: "Meetings integration is not enabled" };
+      }
+      return handleMeetingCancel(params, runCtx, meetingService, identityService);
+    },
+  );
+
+  ctx.tools.register(
+    TOOL_NAMES.meetingList,
+    {
+      displayName: "List Meetings",
+      description: "List upcoming meetings in a date range.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          startDateTime: { type: "string" },
+          endDateTime: { type: "string" },
+        },
+      },
+    },
+    async (params, runCtx): Promise<ToolResult> => {
+      if (!meetingService || !identityService) {
+        return { error: "Meetings integration is not enabled" };
+      }
+      return handleMeetingList(params, runCtx, meetingService, identityService);
+    },
+  );
 }
 
 // ── Plugin Definition ───────────────────────────────────────────────────────
@@ -916,6 +1318,10 @@ const plugin: PaperclipPlugin = definePlugin({
       planner: config.enablePlanner,
       sharepoint: config.enableSharePoint,
       outlook: config.enableOutlook,
+      teams: config.enableTeams,
+      people: config.enablePeople,
+      meetings: config.enableMeetings,
+      agentMappings: Object.keys(config.agentIdentityMap).length,
     });
   },
 
@@ -944,6 +1350,9 @@ const plugin: PaperclipPlugin = definePlugin({
         plannerEnabled: config.enablePlanner,
         sharepointEnabled: config.enableSharePoint,
         outlookEnabled: config.enableOutlook,
+        teamsEnabled: config.enableTeams,
+        peopleEnabled: config.enablePeople,
+        meetingsEnabled: config.enableMeetings,
       },
     };
   },

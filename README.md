@@ -1,10 +1,14 @@
 # Paperclip Microsoft 365 Plugin
 
-A Paperclip plugin that connects AI agents and human Microsoft 365 users as teammates. Instead of treating M365 as a passive data source, this plugin makes Planner tasks, SharePoint documents, and Outlook email into shared workspaces where AI agents and people collaborate side by side -- assigning work, exchanging status updates, sharing files, and keeping each other in the loop.
+A Paperclip plugin that connects AI agents and human Microsoft 365 users as teammates. Instead of treating M365 as a passive data source, this plugin makes Planner tasks, SharePoint documents, Outlook email, Teams channels, people directory, and meeting scheduling into shared workspaces where AI agents and people collaborate side by side -- assigning work, exchanging status updates, sharing files, and keeping each other in the loop.
 
 Built on the [Microsoft Graph API](https://learn.microsoft.com/en-us/graph/overview) and the Paperclip Plugin SDK.
 
 ## Features
+
+### Agentic Identity
+
+Each Paperclip agent can map to a dedicated M365 user account. The `AgentIdentityService` resolves which M365 user an agent acts as when sending emails, posting to Teams, or scheduling meetings. Configure `agentIdentityMap` to map agent IDs to M365 user IDs/UPNs, with `defaultServiceUserId` as the fallback for unmapped agents and background jobs.
 
 ### Planner -- Bidirectional Task Sync
 
@@ -26,6 +30,29 @@ Built on the [Microsoft Graph API](https://learn.microsoft.com/en-us/graph/overv
 - **Deadline calendar events.** Issues with due dates get all-day calendar events on a shared Outlook calendar. Events update or delete automatically when deadlines change.
 - **Daily digest.** A weekday morning email summarizes the previous 24 hours of Paperclip issue activity for configured recipients.
 
+### Teams -- Channel Messaging
+
+- **Post messages** to Teams channels as the agent's M365 identity.
+- **Read channel messages** to understand ongoing conversations.
+- **Reply to threads** for contextual follow-up.
+- **List channels** to discover available channels in the configured team.
+- **Event automation.** Issue create/update events automatically post notifications to the configured default channel.
+
+### People and Presence -- Directory Lookups
+
+- **Search users** in the M365 directory by name, email, or department.
+- **Check presence/availability** for single users or in batch.
+- **Get manager** in the org hierarchy.
+- **List team members** of an M365 group.
+
+### Meetings -- Scheduling and Calendar
+
+- **Schedule meetings** with attendees, optionally creating a Teams online meeting link.
+- **Find available time slots** across multiple attendees using `findMeetingTimes`.
+- **Cancel meetings** by event ID.
+- **List upcoming meetings** in a date range.
+- **Auto-schedule review meetings.** When an issue moves to `in_review`, the plugin automatically schedules a review meeting with relevant attendees.
+
 ## Quick Start
 
 ### 1. Install dependencies and build
@@ -45,13 +72,34 @@ The plugin authenticates using OAuth 2.0 Client Credentials (no interactive logi
 
 - A **Tenant ID** and **Client ID** from an Azure AD app registration
 - A **Client Secret** stored as a Paperclip secret reference
-- **Application permissions** granted with admin consent: `Tasks.ReadWrite.All`, `Group.Read.All`, `Sites.Read.All`, `Files.ReadWrite.All`, `Calendars.ReadWrite`, `Mail.Send` (only the permissions for services you plan to enable)
+- **Application permissions** granted with admin consent (see [Permissions](#permissions) below)
 
 ### 4. Configure through the Setup Wizard
 
-Open the plugin's Settings page in Paperclip. The Setup Wizard walks you through connecting Azure AD, choosing which services to enable, and selecting your Planner plan, SharePoint site, and Outlook calendar.
+Open the plugin's Settings page in Paperclip. The Setup Wizard walks you through connecting Azure AD, choosing which services to enable, and selecting your Planner plan, SharePoint site, Outlook calendar, Teams team, and meeting settings.
 
 For detailed, step-by-step instructions, see the **[Setup Guide](docs/setup-guide.md)**.
+
+## Permissions
+
+Grant only the permissions for services you plan to enable. All permissions require admin consent.
+
+| Service | Graph API Permission | Type |
+|---|---|---|
+| Planner | `Tasks.ReadWrite.All` | Application |
+| Planner | `Group.Read.All` | Application |
+| SharePoint | `Sites.Read.All` | Application |
+| SharePoint | `Files.ReadWrite.All` | Application |
+| Outlook | `Calendars.ReadWrite` | Application |
+| Outlook | `Mail.Send` | Application |
+| Teams | `Team.ReadBasic.All` | Application |
+| Teams | `Channel.ReadBasic.All` | Application |
+| Teams | `ChannelMessage.Read.All` | Application |
+| Teams | `ChannelMessage.Send` | Application |
+| People/Presence | `User.Read.All` | Application |
+| People/Presence | `Presence.Read.All` | Application |
+| Meetings | `Calendars.ReadWrite` | Application (shared with Outlook) |
+| Meetings | `OnlineMeetings.ReadWrite.All` | Application |
 
 ## Architecture
 
@@ -66,18 +114,27 @@ src/
 
 ### Graph API Client (`src/graph/`)
 
-`TokenManager` handles OAuth 2.0 client-credentials token acquisition with in-memory caching and request deduplication. `GraphClient` wraps `fetch` with automatic bearer token injection, 401 token refresh, 429 rate-limit backoff with retry, and a circuit breaker (5 consecutive failures triggers a 5-minute cooldown).
+`TokenManager` handles OAuth 2.0 client-credentials token acquisition with in-memory caching and request deduplication. `GraphClient` wraps `fetch` with automatic bearer token injection, 401 token refresh, 429 rate-limit backoff with retry, and a circuit breaker (5 consecutive failures triggers a 5-minute cooldown). Each M365 product gets its own `GraphClient` instance in the worker.
+
+`validate-id.ts` exports `isValidGraphId()` to prevent path traversal -- all tool handlers validate user-supplied IDs before interpolating them into Graph API URLs.
+
+### Agentic Identity (`src/services/identity.ts`)
+
+`AgentIdentityService` resolves which M365 user a Paperclip agent acts as. Uses `agentIdentityMap` (agent ID to M365 user ID/UPN) with `defaultServiceUserId` as fallback. Tool handlers call `resolveActingUserId(agentId?)` to determine the M365 identity for API calls.
 
 ### Services (`src/services/`)
 
 One service class per M365 product:
 
-| Service | Responsibility |
-|---|---|
-| `PlannerService` | Task CRUD, bucket resolution and auto-creation, entity tracking |
-| `SharePointService` | Document search (via `/search/query`), content read with size limits, file upload |
-| `OutlookService` | Calendar event lifecycle, task email (agent-to-human), daily digest builder and sender |
-| `EmailParser` | Inbound email parsing -- extracts issue ID from headers/subject/body, detects status-change intent from reply keywords |
+| Service | File | Responsibility |
+|---|---|---|
+| `PlannerService` | `planner.ts` | Task CRUD, bucket resolution and auto-creation, entity tracking |
+| `SharePointService` | `sharepoint.ts` | Document search (via `/search/query`), content read with size limits, file upload |
+| `OutlookService` | `outlook.ts` | Calendar event lifecycle, task email (agent-to-human), daily digest builder and sender |
+| `EmailParser` | `outlook.ts` | Inbound email parsing -- extracts issue ID from headers/subject/body, detects status-change intent |
+| `TeamsService` | `teams.ts` | Channel messaging: post, read, reply, list. Issue event automation to default channel |
+| `PeopleService` | `people.ts` | Directory search (with OData injection escaping), presence lookups, manager chain, group members |
+| `MeetingService` | `meetings.ts` | Schedule meetings (with Teams link), find available times, cancel, list upcoming |
 
 ### Sync Engine (`src/sync/`)
 
@@ -96,15 +153,54 @@ Two webhook endpoints receive Microsoft Graph change notifications:
 
 ## Agent Tools
 
-The plugin registers five tools that Paperclip AI agents can invoke during conversations:
+The plugin registers 17 tools that Paperclip AI agents can invoke during conversations:
+
+### SharePoint
 
 | Tool | Description |
 |---|---|
 | `sharepoint-search` | Search documents in the configured SharePoint site by keyword. Returns titles, snippets, and item IDs. |
 | `sharepoint-read` | Read the text content of a specific SharePoint document by drive and item ID. |
 | `sharepoint-upload` | Upload a file to the configured SharePoint upload folder. |
+
+### Planner
+
+| Tool | Description |
+|---|---|
 | `planner-status` | Check the sync status of the linked Planner task for a given Paperclip issue. |
+
+### Outlook
+
+| Tool | Description |
+|---|---|
 | `outlook-send-task-email` | Send an email to a person about a specific issue -- for assignments, status updates, blockers, requests, or custom messages. |
+
+### Teams
+
+| Tool | Description |
+|---|---|
+| `teams-post-message` | Post a message to a Teams channel. Sent as the agent's M365 identity. |
+| `teams-read-channel` | Read recent messages from a Teams channel. |
+| `teams-reply-thread` | Reply to a specific message thread in a Teams channel. |
+| `teams-list-channels` | List all channels in the configured Teams team. |
+
+### People and Presence
+
+| Tool | Description |
+|---|---|
+| `people-lookup` | Search for users in the M365 directory by name, email, or department. |
+| `people-get-presence` | Check a user's availability/presence status. Supports single or batch lookups. |
+| `people-get-manager` | Get a user's manager in the org hierarchy. |
+| `people-list-team-members` | List all members of an M365 group/team. |
+
+### Meetings
+
+| Tool | Description |
+|---|---|
+| `meeting-schedule` | Schedule a meeting with attendees. Optionally creates a Teams online meeting link. |
+| `meeting-find-time` | Find available time slots for a meeting with specified attendees. |
+| `meeting-cancel` | Cancel (delete) a previously scheduled meeting. |
+| `meeting-list` | List upcoming meetings in a date range. |
 
 ## Scheduled Jobs
 
@@ -143,18 +239,75 @@ Tests are pure unit tests against the sync logic, status mapping, conflict resol
 
 All configuration is managed through the plugin's Settings page or Setup Wizard. Key fields:
 
-| Field | Required | Description |
-|---|---|---|
-| `tenantId` | Yes | Azure AD tenant (directory) ID |
-| `clientId` | Yes | Azure AD application (client) ID |
-| `clientSecretRef` | Yes | Paperclip secret reference for the client secret |
-| `enablePlanner` | No | Toggle Planner bidirectional sync (default: off) |
-| `enableSharePoint` | No | Toggle SharePoint document tools (default: off) |
-| `enableOutlook` | No | Toggle Outlook email and calendar (default: off) |
-| `conflictStrategy` | No | `last_write_wins`, `paperclip_wins`, or `planner_wins` (default: `last_write_wins`) |
-| `enableInboundEmail` | No | Toggle inbound email reply processing (default: off) |
+### Core (required)
 
-See the **[Setup Guide](docs/setup-guide.md)** for the full list of fields and their descriptions.
+| Field | Description |
+|---|---|
+| `tenantId` | Azure AD tenant (directory) ID |
+| `clientId` | Azure AD application (client) ID |
+| `clientSecretRef` | Paperclip secret reference for the client secret |
+
+### Agentic Identity
+
+| Field | Description |
+|---|---|
+| `agentIdentityMap` | Maps Paperclip agent IDs to M365 user IDs/UPNs (e.g., `{ "agent-uuid": "ceo@contoso.com" }`) |
+| `defaultServiceUserId` | Fallback M365 user ID for unmapped agents and background jobs |
+
+### Planner
+
+| Field | Default | Description |
+|---|---|---|
+| `enablePlanner` | `false` | Toggle Planner bidirectional sync |
+| `plannerPlanId` | | The Planner plan to sync with |
+| `plannerGroupId` | | The M365 Group that owns the plan |
+| `conflictStrategy` | `last_write_wins` | `last_write_wins`, `paperclip_wins`, or `planner_wins` |
+
+### SharePoint
+
+| Field | Default | Description |
+|---|---|---|
+| `enableSharePoint` | `false` | Toggle SharePoint document tools |
+| `sharepointSiteId` | | SharePoint site ID |
+| `sharepointDriveId` | | Document library drive ID |
+| `sharepointUploadFolderId` | | Target folder for uploads |
+| `maxDocSizeBytes` | `5242880` | Max document read size (5 MB) |
+
+### Outlook
+
+| Field | Default | Description |
+|---|---|---|
+| `enableOutlook` | `false` | Toggle Outlook email and calendar |
+| `outlookCalendarId` | | Shared calendar for deadline events |
+| `digestRecipients` | `[]` | Email addresses for the daily digest |
+| `digestSenderUserId` | | M365 user ID used to send digest emails |
+| `outlookMailboxUserId` | | Mailbox monitored for inbound email replies |
+| `enableInboundEmail` | `false` | Toggle inbound email reply processing |
+| `webhookClientStateRef` | | Secret reference for Graph webhook verification |
+
+### Teams
+
+| Field | Default | Description |
+|---|---|---|
+| `enableTeams` | `false` | Toggle Teams integration |
+| `teamsTeamId` | | The Teams team to integrate with |
+| `teamsDefaultChannelId` | | Default channel for automated notifications |
+
+### People and Presence
+
+| Field | Default | Description |
+|---|---|---|
+| `enablePeople` | `false` | Toggle People and Presence lookups |
+
+### Meetings
+
+| Field | Default | Description |
+|---|---|---|
+| `enableMeetings` | `false` | Toggle meeting scheduling |
+| `meetingOrganizerUserId` | | Default M365 user ID used as meeting organizer |
+| `meetingDefaultDuration` | `30` | Default meeting duration in minutes |
+
+See the **[Setup Guide](docs/setup-guide.md)** for step-by-step instructions.
 
 ## License
 

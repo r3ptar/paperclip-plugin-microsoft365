@@ -33,6 +33,18 @@ export const TOOL_NAMES = {
   sharepointUpload: "sharepoint-upload",
   plannerStatus: "planner-status",
   outlookSendTaskEmail: "outlook-send-task-email",
+  teamsPostMessage: "teams-post-message",
+  teamsReadChannel: "teams-read-channel",
+  teamsReplyThread: "teams-reply-thread",
+  teamsListChannels: "teams-list-channels",
+  peopleLookup: "people-lookup",
+  peopleGetPresence: "people-get-presence",
+  peopleGetManager: "people-get-manager",
+  peopleListTeamMembers: "people-list-team-members",
+  meetingSchedule: "meeting-schedule",
+  meetingFindTime: "meeting-find-time",
+  meetingCancel: "meeting-cancel",
+  meetingList: "meeting-list",
 } as const;
 
 export const ENTITY_TYPES = {
@@ -40,6 +52,7 @@ export const ENTITY_TYPES = {
   calendarEvent: "calendar-event",
   sharepointDoc: "sharepoint-doc",
   taskEmail: "task-email",
+  meetingEvent: "meeting-event",
 } as const;
 
 export const STATE_KEYS = {
@@ -115,6 +128,19 @@ export type M365Config = {
   outlookMailboxUserId: string;
   enableInboundEmail: boolean;
   webhookClientStateRef: string;
+  // Agentic Identity
+  agentIdentityMap: Record<string, string>;
+  defaultServiceUserId: string;
+  // Teams
+  enableTeams: boolean;
+  teamsTeamId: string;
+  teamsDefaultChannelId: string;
+  // People & Presence
+  enablePeople: boolean;
+  // Meetings
+  enableMeetings: boolean;
+  meetingOrganizerUserId: string;
+  meetingDefaultDuration: number;
 };
 
 export const DEFAULT_CONFIG: M365Config = {
@@ -137,4 +163,17 @@ export const DEFAULT_CONFIG: M365Config = {
   outlookMailboxUserId: "",
   enableInboundEmail: false,
   webhookClientStateRef: "",
+  // Agentic Identity
+  agentIdentityMap: {},
+  defaultServiceUserId: "",
+  // Teams
+  enableTeams: false,
+  teamsTeamId: "",
+  teamsDefaultChannelId: "",
+  // People & Presence
+  enablePeople: false,
+  // Meetings
+  enableMeetings: false,
+  meetingOrganizerUserId: "",
+  meetingDefaultDuration: 30,
 };

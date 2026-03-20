@@ -99,8 +99,9 @@ export class OutlookService {
   /**
    * Send an HTML email digest to configured recipients.
    */
-  async sendDigest(subject: string, htmlBody: string): Promise<void> {
-    const { digestSenderUserId, digestRecipients } = this.config;
+  async sendDigest(subject: string, htmlBody: string, actAsUserId?: string): Promise<void> {
+    const { digestRecipients } = this.config;
+    const digestSenderUserId = actAsUserId || this.config.digestSenderUserId;
 
     if (digestRecipients.length === 0) {
       this.ctx.logger.warn("No digest recipients configured — skipping");
@@ -146,8 +147,9 @@ export class OutlookService {
     recipientEmail: string,
     emailType: TaskEmailType,
     customMessage?: string,
+    actAsUserId?: string,
   ): Promise<void> {
-    const { digestSenderUserId } = this.config;
+    const digestSenderUserId = actAsUserId || this.config.digestSenderUserId;
 
     const subject = this.buildTaskEmailSubject(issue, emailType);
     const htmlContent = this.buildTaskEmailHtml(issue, emailType, customMessage);

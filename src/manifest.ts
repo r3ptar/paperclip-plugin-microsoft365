@@ -157,6 +157,57 @@ const manifest: PaperclipPluginManifestV1 = {
         title: "Enable Inbound Email Processing",
         default: false,
       },
+      // Agentic Identity
+      agentIdentityMap: {
+        type: "object",
+        title: "Agent Identity Map",
+        description: "Maps Paperclip agent IDs to M365 user IDs/UPNs (e.g., { 'agent-uuid': 'ceo@contoso.com' })",
+        additionalProperties: { type: "string" },
+        default: DEFAULT_CONFIG.agentIdentityMap,
+      },
+      defaultServiceUserId: {
+        type: "string",
+        title: "Default Service User ID",
+        description: "Fallback M365 user ID for unmapped agents and background jobs",
+      },
+      // Teams
+      enableTeams: {
+        type: "boolean",
+        title: "Enable Teams Integration",
+        default: DEFAULT_CONFIG.enableTeams,
+      },
+      teamsTeamId: {
+        type: "string",
+        title: "Teams Team ID",
+        description: "The ID of the Teams team to integrate with",
+      },
+      teamsDefaultChannelId: {
+        type: "string",
+        title: "Teams Default Channel ID",
+        description: "Default channel for automated notifications",
+      },
+      // People & Presence
+      enablePeople: {
+        type: "boolean",
+        title: "Enable People & Presence",
+        default: DEFAULT_CONFIG.enablePeople,
+      },
+      // Meetings
+      enableMeetings: {
+        type: "boolean",
+        title: "Enable Meeting Scheduling",
+        default: DEFAULT_CONFIG.enableMeetings,
+      },
+      meetingOrganizerUserId: {
+        type: "string",
+        title: "Meeting Organizer User ID",
+        description: "Default M365 user ID used as meeting organizer",
+      },
+      meetingDefaultDuration: {
+        type: "number",
+        title: "Default Meeting Duration (minutes)",
+        default: DEFAULT_CONFIG.meetingDefaultDuration,
+      },
     },
   },
 
@@ -271,6 +322,163 @@ const manifest: PaperclipPluginManifestV1 = {
           customMessage: { type: "string", description: "Custom message to include" },
         },
         required: ["issueId", "recipientEmail"],
+      },
+    },
+    // ── Teams tools ──────────────────────────────────────────────────────────
+    {
+      name: TOOL_NAMES.teamsPostMessage,
+      displayName: "Teams Post Message",
+      description: "Post a message to a Teams channel. The message is sent as the agent's M365 identity.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          channelId: { type: "string", description: "Channel ID (defaults to configured default channel)" },
+          content: { type: "string", description: "HTML message content" },
+          subject: { type: "string", description: "Optional message subject" },
+        },
+        required: ["content"],
+      },
+    },
+    {
+      name: TOOL_NAMES.teamsReadChannel,
+      displayName: "Teams Read Channel",
+      description: "Read recent messages from a Teams channel.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          channelId: { type: "string", description: "The channel ID to read from" },
+          maxMessages: { type: "number", description: "Maximum number of messages to return (default: 20)" },
+        },
+        required: ["channelId"],
+      },
+    },
+    {
+      name: TOOL_NAMES.teamsReplyThread,
+      displayName: "Teams Reply to Thread",
+      description: "Reply to a specific message thread in a Teams channel.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          channelId: { type: "string", description: "The channel ID" },
+          messageId: { type: "string", description: "The parent message ID to reply to" },
+          content: { type: "string", description: "HTML reply content" },
+        },
+        required: ["channelId", "messageId", "content"],
+      },
+    },
+    {
+      name: TOOL_NAMES.teamsListChannels,
+      displayName: "Teams List Channels",
+      description: "List all channels in the configured Teams team.",
+      parametersSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    // ── People & Presence tools ──────────────────────────────────────────────
+    {
+      name: TOOL_NAMES.peopleLookup,
+      displayName: "People Lookup",
+      description: "Search for users in the M365 directory by name, email, or department.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search query (name, email, or department)" },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: TOOL_NAMES.peopleGetPresence,
+      displayName: "People Get Presence",
+      description: "Check a user's availability/presence status. Supports single or batch lookups.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          userId: { type: "string", description: "Single user ID to check" },
+          userIds: { type: "array", items: { type: "string" }, description: "Multiple user IDs for batch lookup" },
+        },
+      },
+    },
+    {
+      name: TOOL_NAMES.peopleGetManager,
+      displayName: "People Get Manager",
+      description: "Get a user's manager in the org hierarchy.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          userId: { type: "string", description: "The user ID to get the manager for" },
+        },
+        required: ["userId"],
+      },
+    },
+    {
+      name: TOOL_NAMES.peopleListTeamMembers,
+      displayName: "People List Team Members",
+      description: "List all members of an M365 group/team.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          groupId: { type: "string", description: "The M365 group ID" },
+        },
+        required: ["groupId"],
+      },
+    },
+    // ── Meeting tools ────────────────────────────────────────────────────────
+    {
+      name: TOOL_NAMES.meetingSchedule,
+      displayName: "Schedule Meeting",
+      description: "Schedule a meeting with attendees. Optionally creates a Teams online meeting link.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          subject: { type: "string", description: "Meeting subject" },
+          attendeeEmails: { type: "array", items: { type: "string" }, description: "Email addresses of attendees" },
+          startDateTime: { type: "string", description: "Meeting start time (ISO 8601)" },
+          endDateTime: { type: "string", description: "Meeting end time (ISO 8601, defaults to start + configured duration)" },
+          body: { type: "string", description: "Meeting description/agenda" },
+          createTeamsLink: { type: "boolean", description: "Create a Teams online meeting link (default: true)" },
+        },
+        required: ["subject", "attendeeEmails", "startDateTime"],
+      },
+    },
+    {
+      name: TOOL_NAMES.meetingFindTime,
+      displayName: "Find Meeting Time",
+      description: "Find available time slots for a meeting with specified attendees.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          attendeeEmails: { type: "array", items: { type: "string" }, description: "Email addresses of attendees" },
+          durationMinutes: { type: "number", description: "Meeting duration in minutes (default: configured default)" },
+          startRange: { type: "string", description: "Start of search range (ISO 8601)" },
+          endRange: { type: "string", description: "End of search range (ISO 8601)" },
+        },
+        required: ["attendeeEmails"],
+      },
+    },
+    {
+      name: TOOL_NAMES.meetingCancel,
+      displayName: "Cancel Meeting",
+      description: "Cancel (delete) a previously scheduled meeting.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          eventId: { type: "string", description: "The calendar event ID to cancel" },
+        },
+        required: ["eventId"],
+      },
+    },
+    {
+      name: TOOL_NAMES.meetingList,
+      displayName: "List Meetings",
+      description: "List upcoming meetings in a date range.",
+      parametersSchema: {
+        type: "object",
+        properties: {
+          startDateTime: { type: "string", description: "Range start (ISO 8601, defaults to now)" },
+          endDateTime: { type: "string", description: "Range end (ISO 8601, defaults to 7 days from now)" },
+        },
       },
     },
   ],

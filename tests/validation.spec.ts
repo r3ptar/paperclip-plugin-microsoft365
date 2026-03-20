@@ -201,6 +201,119 @@ describe("validateConfig", () => {
     expect(result.errors.length).toBeGreaterThanOrEqual(8);
   });
 
+  // ── Agentic Identity validation ─────────────────────────────────────────
+
+  it("warns when no defaultServiceUserId is set and services are enabled", () => {
+    const result = validateConfig(validConfig({ defaultServiceUserId: "" }));
+    expect(result.warnings).toContain(
+      "No default service user ID configured — agent identity resolution will have no fallback",
+    );
+  });
+
+  it("does not warn about defaultServiceUserId when no services are enabled", () => {
+    const result = validateConfig({
+      enablePlanner: false,
+      enableSharePoint: false,
+      enableOutlook: false,
+      enableTeams: false,
+      enablePeople: false,
+      enableMeetings: false,
+      defaultServiceUserId: "",
+    });
+    expect(result.warnings).not.toContain(
+      "No default service user ID configured — agent identity resolution will have no fallback",
+    );
+  });
+
+  it("rejects agent identity map with empty values", () => {
+    const result = validateConfig(validConfig({
+      agentIdentityMap: { "agent-1": "" },
+    }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      "Agent identity map entries must have non-empty agent ID and M365 user ID",
+    );
+  });
+
+  it("accepts a valid agent identity map", () => {
+    const result = validateConfig(validConfig({
+      agentIdentityMap: { "agent-1": "ceo@contoso.com" },
+      defaultServiceUserId: "service@contoso.com",
+    }));
+    expect(result.ok).toBe(true);
+  });
+
+  // ── Teams validation ──────────────────────────────────────────────────────
+
+  it("requires teamsTeamId when Teams is enabled", () => {
+    const result = validateConfig(validConfig({ enableTeams: true, teamsTeamId: "", teamsDefaultChannelId: "ch-1" }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("Teams Team ID is required when Teams is enabled");
+  });
+
+  it("requires teamsDefaultChannelId when Teams is enabled", () => {
+    const result = validateConfig(validConfig({ enableTeams: true, teamsTeamId: "team-1", teamsDefaultChannelId: "" }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("Teams Default Channel ID is required when Teams is enabled");
+  });
+
+  it("does not require Teams fields when Teams is disabled", () => {
+    const result = validateConfig(validConfig({
+      enableTeams: false,
+      teamsTeamId: "",
+      teamsDefaultChannelId: "",
+    }));
+    expect(result.ok).toBe(true);
+  });
+
+  it("requires Azure AD credentials when Teams is enabled", () => {
+    const result = validateConfig({
+      enableTeams: true,
+      teamsTeamId: "team-1",
+      teamsDefaultChannelId: "ch-1",
+      tenantId: "",
+      clientId: "",
+      clientSecretRef: "",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("Azure AD Tenant ID is required");
+  });
+
+  // ── Meetings validation ───────────────────────────────────────────────────
+
+  it("requires meetingOrganizerUserId when Meetings is enabled", () => {
+    const result = validateConfig(validConfig({ enableMeetings: true, meetingOrganizerUserId: "" }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("Meeting Organizer User ID is required when Meetings is enabled");
+  });
+
+  it("rejects non-positive meetingDefaultDuration", () => {
+    const result = validateConfig(validConfig({
+      enableMeetings: true,
+      meetingOrganizerUserId: "user-1",
+      meetingDefaultDuration: 0,
+    }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("Meeting default duration must be a positive number");
+  });
+
+  it("accepts valid meeting configuration", () => {
+    const result = validateConfig(validConfig({
+      enableMeetings: true,
+      meetingOrganizerUserId: "user-1",
+      meetingDefaultDuration: 30,
+    }));
+    expect(result.ok).toBe(true);
+  });
+
+  it("does not require meeting fields when Meetings is disabled", () => {
+    const result = validateConfig(validConfig({
+      enableMeetings: false,
+      meetingOrganizerUserId: "",
+    }));
+    expect(result.ok).toBe(true);
+  });
+
   // ── Return shape ─────────────────────────────────────────────────────────
 
   it("always returns a warnings array even when empty", () => {

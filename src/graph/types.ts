@@ -179,3 +179,84 @@ export interface GraphMailMessage {
   conversationId?: string;
   receivedDateTime: string;
 }
+
+// ── Teams types ──────────────────────────────────────────────────────────────
+
+export interface TeamsChannel {
+  id: string;
+  displayName: string;
+  description?: string;
+  membershipType?: string;
+}
+
+export interface TeamsChannelMessage {
+  id: string;
+  createdDateTime: string;
+  subject?: string;
+  body: { contentType: string; content: string };
+  from?: {
+    user?: { id: string; displayName: string };
+    application?: { id: string; displayName: string };
+  };
+}
+
+// ── People & Presence types ──────────────────────────────────────────────────
+
+export interface GraphUser {
+  id: string;
+  displayName: string;
+  mail?: string;
+  userPrincipalName: string;
+  jobTitle?: string;
+  department?: string;
+  officeLocation?: string;
+}
+
+export interface GraphPresence {
+  id: string;
+  availability: string;
+  activity: string;
+}
+
+export interface GraphGroupMember {
+  id: string;
+  displayName: string;
+  mail?: string;
+  userPrincipalName?: string;
+  jobTitle?: string;
+}
+
+// ── Meeting types ────────────────────────────────────────────────────────────
+
+export interface CalendarEventFull {
+  id: string;
+  subject: string;
+  start: { dateTime: string; timeZone: string };
+  end: { dateTime: string; timeZone: string };
+  body?: { contentType: string; content: string };
+  webLink?: string;
+  isOnlineMeeting?: boolean;
+  onlineMeeting?: { joinUrl: string } | null;
+  attendees?: Array<{
+    emailAddress: { name?: string; address: string };
+    status?: { response: string };
+  }>;
+  organizer?: {
+    emailAddress: { name?: string; address: string };
+  };
+}
+
+export interface FindMeetingTimesResponse {
+  meetingTimeSuggestions: Array<{
+    confidence: number;
+    meetingTimeSlot: {
+      start: { dateTime: string; timeZone: string };
+      end: { dateTime: string; timeZone: string };
+    };
+    attendeeAvailability?: Array<{
+      attendee: { emailAddress: { address: string } };
+      availability: string;
+    }>;
+  }>;
+  emptySuggestionsReason?: string;
+}
