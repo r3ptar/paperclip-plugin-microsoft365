@@ -61,6 +61,7 @@ import type {
   PlannerPlan,
   DriveItem,
   TeamsChannel,
+  GraphUser,
 } from "./graph/types.js";
 
 let pluginCtx: PluginContext | null = null;
@@ -583,6 +584,19 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
       digestRecipients: config.digestRecipients,
       digestSenderUserId: config.digestSenderUserId,
       hasWebhookClientState: Boolean(config.webhookClientStateRef),
+      // Agentic Identity
+      agentIdentityMap: config.agentIdentityMap,
+      defaultServiceUserId: config.defaultServiceUserId,
+      // Teams
+      enableTeams: config.enableTeams,
+      teamsTeamId: config.teamsTeamId,
+      teamsDefaultChannelId: config.teamsDefaultChannelId,
+      // People
+      enablePeople: config.enablePeople,
+      // Meetings
+      enableMeetings: config.enableMeetings,
+      meetingOrganizerUserId: config.meetingOrganizerUserId,
+      meetingDefaultDuration: config.meetingDefaultDuration,
     };
   });
 
@@ -708,6 +722,21 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
     }
   });
 
+  ctx.data.register("m365-teams", async (params) => {
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
+    try {
+      const res = await client.get<GraphListResponse<GraphGroup>>(
+        "/groups?$filter=resourceProvisioningOptions/Any(x:x eq 'Team')&$select=id,displayName&$top=100",
+      );
+      return {
+        items: res.value.map((g) => ({ id: g.id, name: g.displayName })),
+      };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
   ctx.data.register("m365-teams-channels", async (params) => {
     const client = getWizardClient(params);
     if (!client) return { error: "Azure AD credentials not configured" };
@@ -738,6 +767,21 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
       );
       return {
         items: res.value.map((c) => ({ id: c.id, name: c.name })),
+      };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ctx.data.register("m365-users", async (params) => {
+    const client = getWizardClient(params);
+    if (!client) return { error: "Azure AD credentials not configured" };
+    try {
+      const res = await client.get<GraphListResponse<GraphUser>>(
+        "/users?$select=id,displayName,userPrincipalName&$top=100",
+      );
+      return {
+        items: res.value.map((u) => ({ id: u.id, name: `${u.displayName} (${u.userPrincipalName})` })),
       };
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };

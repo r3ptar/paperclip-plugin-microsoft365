@@ -56,6 +56,20 @@ interface WizardState {
   outlookCalendarId: string;
   outlookCalendarName: string;
   digestRecipients: string[];
+  // Teams
+  enableTeams: boolean;
+  teamsTeamId: string;
+  teamsTeamName: string;
+  teamsDefaultChannelId: string;
+  teamsDefaultChannelName: string;
+  // People
+  enablePeople: boolean;
+  // Meetings
+  enableMeetings: boolean;
+  meetingOrganizerUserId: string;
+  meetingDefaultDuration: number;
+  // Identity
+  defaultServiceUserId: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +101,16 @@ const initialState: WizardState = {
   outlookCalendarId: "",
   outlookCalendarName: "",
   digestRecipients: [],
+  enableTeams: false,
+  teamsTeamId: "",
+  teamsTeamName: "",
+  teamsDefaultChannelId: "",
+  teamsDefaultChannelName: "",
+  enablePeople: false,
+  enableMeetings: false,
+  meetingOrganizerUserId: "",
+  meetingDefaultDuration: 30,
+  defaultServiceUserId: "",
 };
 
 // ---------------------------------------------------------------------------
@@ -100,11 +124,21 @@ const ALL_PERMISSIONS = [
   "Files.ReadWrite.All",
   "Calendars.ReadWrite",
   "Mail.Send",
+  "Team.ReadBasic.All",
+  "Channel.ReadBasic.All",
+  "ChannelMessage.Read.All",
+  "Teamwork.Migrate.All",
+  "User.Read.All",
+  "Presence.Read.All",
+  "OnlineMeetings.ReadWrite.All",
 ];
 
 const PLANNER_PERMISSIONS = ["Tasks.ReadWrite.All", "Group.Read.All"];
 const SHAREPOINT_PERMISSIONS = ["Sites.Read.All", "Files.ReadWrite.All"];
 const OUTLOOK_PERMISSIONS = ["Calendars.ReadWrite", "Mail.Send"];
+const TEAMS_PERMISSIONS = ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All", "Teamwork.Migrate.All"];
+const PEOPLE_PERMISSIONS = ["User.Read.All", "Presence.Read.All"];
+const MEETINGS_PERMISSIONS = ["Calendars.ReadWrite", "OnlineMeetings.ReadWrite.All"];
 
 // ---------------------------------------------------------------------------
 // Step definitions
@@ -116,6 +150,8 @@ type StepId =
   | "planner"
   | "sharepoint"
   | "outlook"
+  | "teams"
+  | "meetings"
   | "review";
 
 interface StepDef {
@@ -156,6 +192,16 @@ const ALL_STEPS: StepDef[] = [
       "Configure calendar sync and email digest settings.",
   },
   {
+    id: "teams",
+    title: "Teams Configuration",
+    description: "Select the team and default channel for notifications.",
+  },
+  {
+    id: "meetings",
+    title: "Meetings Configuration",
+    description: "Configure meeting organizer and default duration.",
+  },
+  {
     id: "review",
     title: "Review & Save",
     description:
@@ -172,6 +218,8 @@ function getActiveSteps(state: WizardState): StepDef[] {
     if (s.id === "planner") return state.enablePlanner;
     if (s.id === "sharepoint") return state.enableSharePoint;
     if (s.id === "outlook") return state.enableOutlook;
+    if (s.id === "teams") return state.enableTeams;
+    if (s.id === "meetings") return state.enableMeetings;
     return true;
   });
 }
@@ -236,6 +284,8 @@ export function SetupWizard(props: SetupWizardProps) {
     state.enablePlanner,
     state.enableSharePoint,
     state.enableOutlook,
+    state.enableTeams,
+    state.enableMeetings,
   ]);
 
   const currentStepDef = activeSteps[state.step - 1];
@@ -300,6 +350,14 @@ export function SetupWizard(props: SetupWizardProps) {
         outlookCalendarId: state.outlookCalendarId,
         digestSenderUserId: state.digestSenderUserId,
         digestRecipients: state.digestRecipients,
+        enableTeams: state.enableTeams,
+        teamsTeamId: state.teamsTeamId,
+        teamsDefaultChannelId: state.teamsDefaultChannelId,
+        enablePeople: state.enablePeople,
+        enableMeetings: state.enableMeetings,
+        meetingOrganizerUserId: state.meetingOrganizerUserId,
+        meetingDefaultDuration: state.meetingDefaultDuration,
+        defaultServiceUserId: state.defaultServiceUserId,
       };
 
       const result = (await saveConfigAction(payload)) as SaveConfigResult;
@@ -330,7 +388,8 @@ export function SetupWizard(props: SetupWizardProps) {
       case "credentials":
         return state.connectionTested;
       case "services":
-        return state.enablePlanner || state.enableSharePoint || state.enableOutlook;
+        return state.enablePlanner || state.enableSharePoint || state.enableOutlook ||
+               state.enableTeams || state.enablePeople || state.enableMeetings;
       case "planner":
         return state.plannerGroupId.length > 0 && state.plannerPlanId.length > 0;
       case "sharepoint":
@@ -340,6 +399,10 @@ export function SetupWizard(props: SetupWizardProps) {
           state.digestSenderUserId.trim().length > 0 &&
           state.outlookCalendarId.length > 0
         );
+      case "teams":
+        return state.teamsTeamId.length > 0 && state.teamsDefaultChannelId.length > 0;
+      case "meetings":
+        return state.meetingOrganizerUserId.trim().length > 0;
       case "review":
         return true;
       default:
@@ -461,6 +524,27 @@ export function SetupWizard(props: SetupWizardProps) {
               permissions={OUTLOOK_PERMISSIONS}
               enabled={state.enableOutlook}
               onToggle={(v) => update("enableOutlook", v)}
+            />
+            <ServiceCard
+              name="Teams"
+              description="Post messages to Teams channels, read conversations, and receive automated issue notifications."
+              permissions={TEAMS_PERMISSIONS}
+              enabled={state.enableTeams}
+              onToggle={(v) => update("enableTeams", v)}
+            />
+            <ServiceCard
+              name="People & Presence"
+              description="Look up users in the directory, check availability, and explore org charts."
+              permissions={PEOPLE_PERMISSIONS}
+              enabled={state.enablePeople}
+              onToggle={(v) => update("enablePeople", v)}
+            />
+            <ServiceCard
+              name="Meetings"
+              description="Schedule meetings with Teams links, find available times, and manage calendars."
+              permissions={MEETINGS_PERMISSIONS}
+              enabled={state.enableMeetings}
+              onToggle={(v) => update("enableMeetings", v)}
             />
           </div>
         );
@@ -631,6 +715,88 @@ export function SetupWizard(props: SetupWizardProps) {
           </>
         );
 
+      // ── Teams ────────────────────────────────────────────────────────
+      case "teams":
+        return (
+          <>
+            <GraphDropdown
+              label="Team"
+              dataHandler="m365-teams"
+              value={state.teamsTeamId}
+              onChange={(id, name) => {
+                setState((prev) => ({
+                  ...prev,
+                  teamsTeamId: id,
+                  teamsTeamName: name,
+                  teamsDefaultChannelId: "",
+                  teamsDefaultChannelName: "",
+                }));
+              }}
+              companyId={companyId}
+              placeholder="Select a team..."
+              credentials={wizardCredentials}
+            />
+            <GraphDropdown
+              label="Default Channel"
+              dataHandler="m365-teams-channels"
+              params={{ teamId: state.teamsTeamId }}
+              value={state.teamsDefaultChannelId}
+              onChange={(id, name) => {
+                update("teamsDefaultChannelId", id);
+                update("teamsDefaultChannelName", name);
+              }}
+              disabled={!state.teamsTeamId}
+              companyId={companyId}
+              placeholder="Select a channel..."
+              credentials={wizardCredentials}
+            />
+          </>
+        );
+
+      // ── Meetings ──────────────────────────────────────────────────────
+      case "meetings":
+        return (
+          <>
+            <div style={fieldRow}>
+              <span style={fieldLabel}>Meeting Organizer</span>
+              <input
+                type="text"
+                style={textInput}
+                placeholder="user@yourtenant.com"
+                value={state.meetingOrganizerUserId}
+                onChange={(e) => update("meetingOrganizerUserId", e.target.value)}
+              />
+              <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+                The M365 user whose calendar is used to create meetings.
+              </span>
+            </div>
+            <div style={fieldRow}>
+              <span style={fieldLabel}>Default Duration (minutes)</span>
+              <input
+                type="number"
+                style={{ ...textInput, width: "180px" }}
+                min={5}
+                max={480}
+                value={state.meetingDefaultDuration}
+                onChange={(e) => update("meetingDefaultDuration", parseInt(e.target.value, 10) || 30)}
+              />
+            </div>
+            <div style={fieldRow}>
+              <span style={fieldLabel}>Default Service User ID</span>
+              <input
+                type="text"
+                style={textInput}
+                placeholder="service-account@yourtenant.com (fallback for background jobs)"
+                value={state.defaultServiceUserId}
+                onChange={(e) => update("defaultServiceUserId", e.target.value)}
+              />
+              <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+                Fallback identity for unmapped agents and automated operations.
+              </span>
+            </div>
+          </>
+        );
+
       // ── Step 6: Review & Save ──────────────────────────────────────────
       case "review":
         return (
@@ -674,6 +840,9 @@ export function SetupWizard(props: SetupWizardProps) {
                 {state.enableOutlook && (
                   <span style={permBadge}>Outlook</span>
                 )}
+                {state.enableTeams && <span style={permBadge}>Teams</span>}
+                {state.enablePeople && <span style={permBadge}>People</span>}
+                {state.enableMeetings && <span style={permBadge}>Meetings</span>}
               </div>
             </div>
 
@@ -750,6 +919,54 @@ export function SetupWizard(props: SetupWizardProps) {
                     </span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {state.enableTeams && (
+              <div style={reviewSection}>
+                <div style={label}>Teams</div>
+                <div style={reviewRow}>
+                  <span style={reviewLabel}>Team</span>
+                  <span style={reviewValue}>{state.teamsTeamName || state.teamsTeamId}</span>
+                </div>
+                <div style={reviewRow}>
+                  <span style={reviewLabel}>Default Channel</span>
+                  <span style={reviewValue}>{state.teamsDefaultChannelName || state.teamsDefaultChannelId}</span>
+                </div>
+              </div>
+            )}
+
+            {state.enablePeople && (
+              <div style={reviewSection}>
+                <div style={label}>People &amp; Presence</div>
+                <div style={reviewRow}>
+                  <span style={reviewLabel}>Status</span>
+                  <span style={reviewValue}>Enabled</span>
+                </div>
+              </div>
+            )}
+
+            {state.enableMeetings && (
+              <div style={reviewSection}>
+                <div style={label}>Meetings</div>
+                <div style={reviewRow}>
+                  <span style={reviewLabel}>Organizer</span>
+                  <span style={reviewValue}>{state.meetingOrganizerUserId}</span>
+                </div>
+                <div style={reviewRow}>
+                  <span style={reviewLabel}>Default Duration</span>
+                  <span style={reviewValue}>{state.meetingDefaultDuration} minutes</span>
+                </div>
+              </div>
+            )}
+
+            {state.defaultServiceUserId && (
+              <div style={reviewSection}>
+                <div style={label}>Agentic Identity</div>
+                <div style={reviewRow}>
+                  <span style={reviewLabel}>Default Service User</span>
+                  <span style={reviewValue}>{state.defaultServiceUserId}</span>
+                </div>
               </div>
             )}
 

@@ -8,3 +8,5 @@ export { GraphDropdown } from "./GraphDropdown.js";
 export type { GraphDropdownProps } from "./GraphDropdown.js";
 export { EmailChips } from "./EmailChips.js";
 export type { EmailChipsProps } from "./EmailChips.js";
+export { KeyValueEditor } from "./KeyValueEditor.js";
+export type { KeyValueEditorProps } from "./KeyValueEditor.js";

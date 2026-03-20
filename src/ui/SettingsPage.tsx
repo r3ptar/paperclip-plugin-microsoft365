@@ -29,6 +29,7 @@ import type {
   TestConnectionResult,
 } from "./types.js";
 import { SetupWizard } from "./SetupWizard.js";
+import { KeyValueEditor } from "./components/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -54,6 +55,15 @@ function configToFormState(cfg: PluginConfigData): ConfigFormState {
     outlookCalendarId: cfg.outlookCalendarId ?? "",
     digestRecipients: (cfg.digestRecipients ?? []).join(", "),
     digestSenderUserId: cfg.digestSenderUserId ?? "",
+    agentIdentityMap: cfg.agentIdentityMap ?? {},
+    defaultServiceUserId: cfg.defaultServiceUserId ?? "",
+    enableTeams: cfg.enableTeams ?? false,
+    teamsTeamId: cfg.teamsTeamId ?? "",
+    teamsDefaultChannelId: cfg.teamsDefaultChannelId ?? "",
+    enablePeople: cfg.enablePeople ?? false,
+    enableMeetings: cfg.enableMeetings ?? false,
+    meetingOrganizerUserId: cfg.meetingOrganizerUserId ?? "",
+    meetingDefaultDuration: cfg.meetingDefaultDuration ?? 30,
   };
 }
 
@@ -447,6 +457,65 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
             />
             <span style={toggleLabel}>Enable Outlook</span>
           </label>
+
+          <label style={toggleRow}>
+            <input
+              type="checkbox"
+              checked={form.enableTeams}
+              onChange={(e) => updateField("enableTeams", e.target.checked)}
+            />
+            <span style={toggleLabel}>Enable Teams</span>
+          </label>
+
+          <label style={toggleRow}>
+            <input
+              type="checkbox"
+              checked={form.enablePeople}
+              onChange={(e) => updateField("enablePeople", e.target.checked)}
+            />
+            <span style={toggleLabel}>Enable People &amp; Presence</span>
+          </label>
+
+          <label style={toggleRow}>
+            <input
+              type="checkbox"
+              checked={form.enableMeetings}
+              onChange={(e) => updateField("enableMeetings", e.target.checked)}
+            />
+            <span style={toggleLabel}>Enable Meetings</span>
+          </label>
+        </div>
+      </div>
+
+      {/* ── Agentic Identity ─────────────────────────────────────────────── */}
+      <div style={card}>
+        <div style={label}>Agentic Identity</div>
+
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Default Service User ID</span>
+          <input
+            type="text"
+            style={textInput}
+            placeholder="service-account@yourtenant.com"
+            value={form.defaultServiceUserId}
+            onChange={(e) => updateField("defaultServiceUserId", e.target.value)}
+          />
+          <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+            Fallback M365 user for unmapped agents and background jobs
+          </span>
+        </div>
+
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Agent Identity Map</span>
+          <KeyValueEditor
+            entries={form.agentIdentityMap}
+            onChange={(entries) => updateField("agentIdentityMap", entries)}
+            keyPlaceholder="Paperclip Agent ID"
+            valuePlaceholder="M365 User ID or UPN"
+          />
+          <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+            Map each Paperclip agent to a dedicated M365 user account
+          </span>
         </div>
       </div>
 
@@ -591,6 +660,68 @@ export function M365SettingsPage(props: PluginSettingsPageProps) {
             <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
               Comma-separated email addresses
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Teams Configuration (conditional) ──────────────────────────── */}
+      {form.enableTeams && (
+        <div style={card}>
+          <div style={label}>Teams Configuration</div>
+
+          <div style={fieldRow}>
+            <span style={fieldLabel}>Team ID</span>
+            <input
+              type="text"
+              style={textInput}
+              placeholder="Teams Team ID"
+              value={form.teamsTeamId}
+              onChange={(e) => updateField("teamsTeamId", e.target.value)}
+            />
+          </div>
+
+          <div style={fieldRow}>
+            <span style={fieldLabel}>Default Channel ID</span>
+            <input
+              type="text"
+              style={textInput}
+              placeholder="Default channel for notifications"
+              value={form.teamsDefaultChannelId}
+              onChange={(e) => updateField("teamsDefaultChannelId", e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Meetings Configuration (conditional) ─────────────────────────── */}
+      {form.enableMeetings && (
+        <div style={card}>
+          <div style={label}>Meetings Configuration</div>
+
+          <div style={fieldRow}>
+            <span style={fieldLabel}>Organizer User ID</span>
+            <input
+              type="text"
+              style={textInput}
+              placeholder="user@yourtenant.com"
+              value={form.meetingOrganizerUserId}
+              onChange={(e) => updateField("meetingOrganizerUserId", e.target.value)}
+            />
+            <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+              Default M365 user who organizes meetings
+            </span>
+          </div>
+
+          <div style={fieldRow}>
+            <span style={fieldLabel}>Default Duration (minutes)</span>
+            <input
+              type="number"
+              style={numberInput}
+              min={5}
+              max={480}
+              value={form.meetingDefaultDuration}
+              onChange={(e) => updateField("meetingDefaultDuration", parseInt(e.target.value, 10) || 30)}
+            />
           </div>
         </div>
       )}

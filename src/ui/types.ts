@@ -28,6 +28,15 @@ export type PluginConfigData = {
   digestRecipients: string[];
   digestSenderUserId: string;
   hasWebhookClientState: boolean;
+  agentIdentityMap: Record<string, string>;
+  defaultServiceUserId: string;
+  enableTeams: boolean;
+  teamsTeamId: string;
+  teamsDefaultChannelId: string;
+  enablePeople: boolean;
+  enableMeetings: boolean;
+  meetingOrganizerUserId: string;
+  meetingDefaultDuration: number;
 };
 
 /** Shape of the form state used by the settings page editor. */
@@ -49,6 +58,15 @@ export type ConfigFormState = {
   outlookCalendarId: string;
   digestRecipients: string;
   digestSenderUserId: string;
+  agentIdentityMap: Record<string, string>;
+  defaultServiceUserId: string;
+  enableTeams: boolean;
+  teamsTeamId: string;
+  teamsDefaultChannelId: string;
+  enablePeople: boolean;
+  enableMeetings: boolean;
+  meetingOrganizerUserId: string;
+  meetingDefaultDuration: number;
 };
 
 /** Response from the save-config action. */
@@ -75,6 +93,11 @@ export type IssueM365Data = {
     id: string;
     title: string | null;
     data: { eventId?: string; dueDate?: string };
+  } | null;
+  meetingEvent: {
+    id: string;
+    title: string | null;
+    data: { eventId?: string; autoScheduled?: boolean };
   } | null;
 };
 
